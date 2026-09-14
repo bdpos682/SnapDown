@@ -52,14 +52,14 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#0F172A"
+  adaptive_icon_background: "#071B64"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
   remove_alpha_ios: true
 
 flutter_native_splash:
-  color: "#0F172A" # Màu nền xanh than đậm đồng bộ với Icon
+  color: "#071B64" # Màu nền xanh than đậm đồng bộ với Icon
   image: assets/icon/app_icon.png
   android_12:
     image: assets/icon/app_icon.png
-    icon_background_color: "#0F172A"
+    icon_background_color: "#071B64"
   fullscreen: true
