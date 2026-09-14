@@ -50,6 +50,12 @@ class DownloadManager {
     }
   }
 
+  /// Dọn dẹp các tác vụ đã hoàn thành khỏi danh sách
+  void clearCompletedTasks() {
+    _tasks.removeWhere((t) => t.status == DownloadStatus.completed);
+    _notify();
+  }
+
   /// Đưa tác vụ tải mới vào hàng đợi
   DownloadTask enqueue({
     required MediaInfo mediaInfo,

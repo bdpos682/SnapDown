@@ -270,6 +270,45 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> {
     }
   }
 
+  Future<void> pause() async {
+    if (state.isVideoMode) {
+      await _videoController?.pause();
+      state = state.copyWith(isPlaying: false);
+    } else {
+      await _audioHandler?.pause();
+    }
+  }
+
+  Future<void> stop() async {
+    await _stopCurrent();
+    state = const PlaybackStateModel();
+  }
+
+  Future<void> dismissPlayer() async {
+    await _stopCurrent();
+    state = const PlaybackStateModel();
+  }
+
+  Future<void> seekTo(Duration position) async => await seek(position);
+
+  Future<void> seekForward(Duration delta) async => await seekRelative(delta);
+
+  Future<void> seekBackward(Duration delta) async => await seekRelative(-delta);
+
+  Future<void> skipToNext() async => await next();
+
+  Future<void> skipToPrevious() async => await previous();
+
+  void cycleRepeatMode() => toggleRepeat();
+
+  Future<void> enterPipMode() async => await enterPip();
+
+  Future<void> playQueueItem(int index) async {
+    if (index >= 0 && index < state.queue.length) {
+      await playLocalItem(state.queue[index], queue: state.queue, resumePosition: false);
+    }
+  }
+
   Future<void> togglePlayPause() async {
     if (state.isVideoMode) {
       if (_videoController == null) return;

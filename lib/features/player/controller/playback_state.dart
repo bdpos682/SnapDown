@@ -41,6 +41,8 @@ class PlaybackStateModel {
 
   bool get hasMedia => localItem != null || onlineInfo != null;
 
+  String? get mediaId => localItem?.id;
+  int get currentIndex => queueIndex;
   String get title => localItem?.title ?? onlineInfo?.title ?? '';
   String get artist => localItem?.artist ?? onlineInfo?.author ?? '';
   String? get thumbnailPath => localItem?.thumbnailPath;

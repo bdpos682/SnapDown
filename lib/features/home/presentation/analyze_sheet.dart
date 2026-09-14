@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_typography.dart';
+import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/navigation/navigation_provider.dart';
 import '../../../core/utils/html_utils.dart';
 import '../../downloads/engine/download_manager.dart';
@@ -23,10 +22,10 @@ class AnalyzeSheet extends ConsumerStatefulWidget {
 }
 
 class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
-  int _selectedTab = 0; // 0 = Video, 1 = Audio
+  int _selectedTab = 0; // 0 = Video, 1 = Âm thanh
   MediaFormat? _selectedFormat;
-  bool _convertToMp3 = false;
-  int _mp3Bitrate = 320;
+  bool _convertToMp3 = true;
+  final int _mp3Bitrate = 320;
 
   @override
   void initState() {
@@ -42,6 +41,7 @@ class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
 
   void _onDownloadPressed() {
     if (_selectedFormat == null) return;
+    HapticFeedback.mediumImpact();
 
     DownloadManager().enqueue(
       mediaInfo: widget.mediaInfo,
@@ -51,15 +51,14 @@ class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
     );
 
     Navigator.of(context).pop();
-
-    // Nhảy ngay sang tab Tải xuống
     ref.read(navigationTabProvider.notifier).switchToDownloads();
   }
 
   void _onStreamNowPressed() async {
     if (_selectedFormat == null) return;
-    final controller = ref.read(playbackControllerProvider.notifier);
+    HapticFeedback.selectionClick();
 
+    final controller = ref.read(playbackControllerProvider.notifier);
     Navigator.of(context).pop();
 
     await controller.playOnlineStream(widget.mediaInfo, _selectedFormat!);
@@ -77,202 +76,320 @@ class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
     }
   }
 
+  String _formatResolution(MediaFormat format) {
+    final h = format.height ?? 0;
+    if (h >= 1080) return AppStringsVi.resolutionSuper;
+    if (h >= 720) return AppStringsVi.resolutionHigh;
+    if (h >= 480) return AppStringsVi.resolutionStandard;
+    return AppStringsVi.resolutionEconomy;
+  }
+
+  String _formatAudioQuality(MediaFormat format) {
+    final br = (format.bitrate ?? 0) ~/ 1000;
+    if (br >= 320) return AppStringsVi.audioStudio;
+    if (br >= 256) return AppStringsVi.audioHigh;
+    if (br >= 192) return AppStringsVi.audioStandard;
+    return AppStringsVi.audioEconomy;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final surfaceColor = isDark ? AppColors.darkCard : AppColors.lightCard;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final primaryAccent = isDark ? AppColors.accentCyan : AppColors.accentBlue;
+    final accent = isDark ? AppColors.accentCyan : AppColors.accentBlue;
 
     final info = widget.mediaInfo;
     final videoFormats = info.videoFormats;
     final audioFormats = info.audioFormats;
 
+    final title = HtmlUtils.unescape(info.title);
+    final author = HtmlUtils.unescape(info.author);
+
     return Container(
       decoration: BoxDecoration(
         color: surfaceColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20, vertical: AppSpacing.s12),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thanh kéo nhẹ
+              // Thanh kéo nhẹ phía trên
               Center(
                 child: Container(
-                  width: 36,
-                  height: 4,
+                  width: 42,
+                  height: 4.5,
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkHighlight : AppColors.lightHighlight,
-                    borderRadius: AppRadius.radiusPill,
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
+              const SizedBox(height: 16),
 
-              // Thông tin tệp
+              // Thẻ tác phẩm (Ảnh bìa + Tên + Tác giả)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: AppRadius.radiusMd,
-                    child: info.thumbnailUrl != null
-                        ? Image.network(
-                            info.thumbnailUrl!,
-                            width: 100,
-                            height: 64,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _thumbPlaceholder(),
-                          )
-                        : _thumbPlaceholder(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      width: 90,
+                      height: 60,
+                      child: info.thumbnailUrl != null
+                          ? Image.network(
+                              info.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, error, stack) => _defaultThumb(),
+                            )
+                          : _defaultThumb(),
+                    ),
                   ),
-                  const SizedBox(width: AppSpacing.s12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: primaryAccent.withAlpha(30),
-                            borderRadius: AppRadius.radiusXs,
-                          ),
-                          child: Text(
-                            info.platform.toUpperCase(),
-                            style: AppTypography.caption.copyWith(
-                              color: primaryAccent,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          HtmlUtils.unescape(info.title),
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: textPrimary,
-                            fontWeight: FontWeight.w600,
+                          '$author • ${_formatDuration(info.duration)}',
+                          style: TextStyle(
+                            color: textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${HtmlUtils.unescape(info.author)} • ${info.formattedDuration}',
-                          style: AppTypography.caption.copyWith(color: textSecondary),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.s16),
 
-              // Segment chọn: [ VIDEO | ÂM THANH ]
+              const SizedBox(height: 18),
+
+              // Bộ chọn Tab: Hình ảnh & Video VS Âm thanh & Nhạc
               Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkElevated : AppColors.lightElevated,
-                  borderRadius: AppRadius.radiusMd,
-                ),
+                height: 44,
                 padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightElevated,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: _buildSegmentButton(
-                        title: 'VIDEO',
-                        icon: Icons.movie_outlined,
-                        selected: _selectedTab == 0,
-                        primaryAccent: primaryAccent,
+                      child: GestureDetector(
                         onTap: () {
+                          HapticFeedback.selectionClick();
                           setState(() {
                             _selectedTab = 0;
-                            _selectedFormat = info.highestQualityVideo ?? videoFormats.firstOrNull;
+                            if (videoFormats.isNotEmpty) {
+                              _selectedFormat = videoFormats.first;
+                            }
                           });
                         },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 0
+                                ? (isDark ? AppColors.darkElevated : Colors.white)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _selectedTab == 0
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(isDark ? 50 : 15),
+                                      blurRadius: 6,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.movie_rounded,
+                                  size: 16,
+                                  color: _selectedTab == 0 ? accent : textSecondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  AppStringsVi.tabVideo,
+                                  style: TextStyle(
+                                    color: _selectedTab == 0 ? textPrimary : textSecondary,
+                                    fontWeight: _selectedTab == 0 ? FontWeight.w800 : FontWeight.w600,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     Expanded(
-                      child: _buildSegmentButton(
-                        title: 'ÂM THANH',
-                        icon: Icons.headphones_outlined,
-                        selected: _selectedTab == 1,
-                        primaryAccent: primaryAccent,
+                      child: GestureDetector(
                         onTap: () {
+                          HapticFeedback.selectionClick();
                           setState(() {
                             _selectedTab = 1;
-                            _selectedFormat = info.bestAudio ?? audioFormats.firstOrNull;
+                            if (audioFormats.isNotEmpty) {
+                              _selectedFormat = audioFormats.first;
+                            }
                           });
                         },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 1
+                                ? (isDark ? AppColors.darkElevated : Colors.white)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _selectedTab == 1
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(isDark ? 50 : 15),
+                                      blurRadius: 6,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.music_note_rounded,
+                                  size: 16,
+                                  color: _selectedTab == 1 ? accent : textSecondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  AppStringsVi.tabAudio,
+                                  style: TextStyle(
+                                    color: _selectedTab == 1 ? textPrimary : textSecondary,
+                                    fontWeight: _selectedTab == 1 ? FontWeight.w800 : FontWeight.w600,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
 
-              // Danh sách định dạng
+              const SizedBox(height: 14),
+
+              // Danh sách các định dạng theo Tab đã chọn
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
+                constraints: const BoxConstraints(maxHeight: 180),
                 child: ListView(
                   shrinkWrap: true,
                   children: _selectedTab == 0
-                      ? _buildVideoOptions(videoFormats, textPrimary, textSecondary, primaryAccent)
-                      : _buildAudioOptions(audioFormats, textPrimary, textSecondary, primaryAccent),
+                      ? videoFormats.map((fmt) => _buildFormatTile(fmt, isDark, textPrimary, textSecondary, accent)).toList()
+                      : audioFormats.map((fmt) => _buildFormatTile(fmt, isDark, textPrimary, textSecondary, accent)).toList(),
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
 
-              // Nút hành động
+              // Tùy chọn chuyển sang MP3 nếu ở Tab Âm thanh
+              if (_selectedTab == 1) ...[
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: accent,
+                  checkColor: Colors.black,
+                  value: _convertToMp3,
+                  title: const Text(
+                    AppStringsVi.convertToMp3,
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text(
+                    AppStringsVi.convertToMp3Hint,
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onChanged: (val) {
+                    setState(() => _convertToMp3 = val ?? true);
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // 2 Phím hành động: Tải về máy ngay & Xem/Nghe thử
               Row(
                 children: [
-                  // Nút phụ: Xem / Nghe trực tiếp
-                  Expanded(
-                    flex: 2,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusMd),
-                        side: BorderSide(
-                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                        ),
-                      ),
-                      onPressed: _onStreamNowPressed,
-                      icon: Icon(
-                        _selectedTab == 0 ? Icons.play_arrow_rounded : Icons.headphones_rounded,
-                        color: textPrimary,
-                      ),
-                      label: Text(
-                        _selectedTab == 0 ? 'XEM NGAY' : 'NGHE NGAY',
-                        style: AppTypography.label.copyWith(color: textPrimary),
+                  // Nút Xem / Nghe thử
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      side: BorderSide(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                       ),
                     ),
+                    icon: Icon(
+                      _selectedTab == 0 ? Icons.play_circle_outline_rounded : Icons.headphones_rounded,
+                      size: 20,
+                      color: textPrimary,
+                    ),
+                    label: Text(
+                      AppStringsVi.playNow,
+                      style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    onPressed: _onStreamNowPressed,
                   ),
-                  const SizedBox(width: AppSpacing.s12),
+                  const SizedBox(width: 10),
 
-                  // Nút chính: Tải về
+                  // Nút Tải về máy ngay
                   Expanded(
-                    flex: 3,
                     child: Container(
+                      height: 50,
                       decoration: BoxDecoration(
-                        gradient: isDark ? AppColors.cyanBlueGradient : AppColors.lightPrimaryGradient,
-                        borderRadius: AppRadius.radiusMd,
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentCyan.withAlpha(isDark ? 90 : 50),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusMd),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.arrow_downward_rounded, color: Colors.black, size: 22),
+                        label: const Text(
+                          AppStringsVi.downloadNow,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                          ),
                         ),
                         onPressed: _onDownloadPressed,
-                        icon: const Icon(Icons.download_rounded, color: Colors.white),
-                        label: Text(
-                          'TẢI XUỐNG',
-                          style: AppTypography.label.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
                       ),
                     ),
                   ),
@@ -285,193 +402,62 @@ class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
     );
   }
 
-  List<Widget> _buildVideoOptions(
-    List<MediaFormat> formats,
+  Widget _buildFormatTile(
+    MediaFormat fmt,
+    bool isDark,
     Color textPrimary,
     Color textSecondary,
-    Color primaryAccent,
+    Color accent,
   ) {
-    if (formats.isEmpty) {
-      return [
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.s16),
-          child: Text('Không tìm thấy luồng video', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
-        )
-      ];
-    }
+    final isSelected = _selectedFormat == fmt;
+    final label = fmt.hasVideo ? _formatResolution(fmt) : _formatAudioQuality(fmt);
+    final sizeStr = fmt.estimatedSizeBytes != null
+        ? AppStringsVi.formatBytes(fmt.estimatedSizeBytes!)
+        : 'Tự động';
 
-    return formats.map((fmt) {
-      final isSelected = _selectedFormat?.formatId == fmt.formatId;
-      return Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.s8),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryAccent.withAlpha(20) : Colors.transparent,
-          borderRadius: AppRadius.radiusMd,
-          border: Border.all(
-            color: isSelected ? primaryAccent : AppColors.darkBorderSubtle,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: ListTile(
-          dense: true,
-          onTap: () => setState(() => _selectedFormat = fmt),
-          title: Row(
-            children: [
-              Text(
-                fmt.displayQuality,
-                style: AppTypography.bodyMedium.copyWith(
-                  color: isSelected ? primaryAccent : textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (fmt.fps != null && fmt.fps! >= 50)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withAlpha(40),
-                    borderRadius: AppRadius.radiusXs,
-                  ),
-                  child: Text('${fmt.fps} FPS', style: AppTypography.caption.copyWith(color: primaryAccent)),
-                ),
-            ],
-          ),
-          subtitle: Text(fmt.displayDetails, style: AppTypography.caption.copyWith(color: textSecondary)),
-          trailing: Text(fmt.formattedSize, style: AppTypography.bodySmall.copyWith(color: textSecondary)),
-        ),
-      );
-    }).toList();
-  }
-
-  List<Widget> _buildAudioOptions(
-    List<MediaFormat> formats,
-    Color textPrimary,
-    Color textSecondary,
-    Color primaryAccent,
-  ) {
-    return [
-      // 1. Lựa chọn Best Audio
-      Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.s8),
-        decoration: BoxDecoration(
-          color: (!_convertToMp3) ? AppColors.accentAmber.withAlpha(20) : Colors.transparent,
-          borderRadius: AppRadius.radiusMd,
-          border: Border.all(
-            color: (!_convertToMp3) ? AppColors.accentAmber : AppColors.darkBorderSubtle,
-            width: (!_convertToMp3) ? 1.5 : 1,
-          ),
-        ),
-        child: ListTile(
-          dense: true,
-          onTap: () {
-            setState(() {
-              _convertToMp3 = false;
-              _selectedFormat = widget.mediaInfo.bestAudio ?? formats.firstOrNull;
-            });
-          },
-          title: Row(
-            children: [
-              Text(
-                'ÂM THANH TỐT NHẤT',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: (!_convertToMp3) ? AppColors.accentAmber : textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.accentGreen.withAlpha(30),
-                  borderRadius: AppRadius.radiusXs,
-                ),
-                child: Text('KHUYÊN DÙNG', style: AppTypography.caption.copyWith(color: AppColors.accentGreen)),
-              ),
-            ],
-          ),
-          subtitle: Text(
-            'Chất lượng gốc (${_selectedFormat?.container.toUpperCase() ?? 'M4A/OPUS'}) • Không nén lại',
-            style: AppTypography.caption.copyWith(color: textSecondary),
-          ),
-        ),
-      ),
-
-      // 2. Lựa chọn chuyển sang MP3
-      Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.s8),
-        decoration: BoxDecoration(
-          color: _convertToMp3 ? primaryAccent.withAlpha(20) : Colors.transparent,
-          borderRadius: AppRadius.radiusMd,
-          border: Border.all(
-            color: _convertToMp3 ? primaryAccent : AppColors.darkBorderSubtle,
-            width: _convertToMp3 ? 1.5 : 1,
-          ),
-        ),
-        child: ListTile(
-          dense: true,
-          onTap: () {
-            setState(() {
-              _convertToMp3 = true;
-              _selectedFormat = widget.mediaInfo.bestAudio ?? formats.firstOrNull;
-            });
-          },
-          title: Row(
-            children: [
-              Text(
-                'Chuyển đổi MP3',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: _convertToMp3 ? primaryAccent : textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _mp3Bitrate,
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: 320, child: Text('320 kbps')),
-                  DropdownMenuItem(value: 256, child: Text('256 kbps')),
-                  DropdownMenuItem(value: 192, child: Text('192 kbps')),
-                  DropdownMenuItem(value: 128, child: Text('128 kbps')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _mp3Bitrate = val);
-                },
-              ),
-            ],
-          ),
-          subtitle: Text('Định dạng MP3 tương thích mọi thiết bị', style: AppTypography.caption.copyWith(color: textSecondary)),
-        ),
-      ),
-    ];
-  }
-
-  Widget _buildSegmentButton({
-    required String title,
-    required IconData icon,
-    required bool selected,
-    required Color primaryAccent,
-    required VoidCallback onTap,
-  }) {
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedFormat = fmt);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? primaryAccent : Colors.transparent,
-          borderRadius: AppRadius.radiusSm,
+          color: isSelected
+              ? accent.withAlpha(isDark ? 40 : 25)
+              : (isDark ? AppColors.darkSurface : AppColors.lightElevated),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? accent : (isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle),
+            width: isSelected ? 1.5 : 1.0,
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: selected ? Colors.white : AppColors.darkTextSecondary),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: AppTypography.label.copyWith(
-                color: selected ? Colors.white : AppColors.darkTextSecondary,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 20,
+              color: isSelected ? accent : textSecondary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isSelected ? (isDark ? Colors.white : accent) : textPrimary,
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'Định dạng ${fmt.container.toUpperCase()} • $sizeStr',
+                    style: TextStyle(color: textSecondary, fontSize: 11),
+                  ),
+                ],
               ),
             ),
           ],
@@ -480,14 +466,16 @@ class _AnalyzeSheetState extends ConsumerState<AnalyzeSheet> {
     );
   }
 
-  Widget _thumbPlaceholder() {
+  Widget _defaultThumb() {
     return Container(
-      width: 100,
-      height: 64,
-      color: AppColors.darkHighlight,
-      child: const Center(
-        child: Icon(Icons.movie_rounded, color: AppColors.accentCyan, size: 28),
-      ),
+      color: AppColors.accentCyan.withAlpha(40),
+      child: const Icon(Icons.video_library_rounded, color: AppColors.accentCyan),
     );
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }

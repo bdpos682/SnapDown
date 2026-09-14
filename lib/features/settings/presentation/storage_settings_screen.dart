@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_typography.dart';
+import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/storage/storage_manager.dart';
+import '../../../core/widgets/app_dialogs.dart';
 
 class StorageSettingsScreen extends StatefulWidget {
   const StorageSettingsScreen({super.key});
@@ -35,30 +35,26 @@ class _StorageSettingsScreenState extends State<StorageSettingsScreen> {
   }
 
   Future<void> _clearCache() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await AppDialogs.showConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xoá bộ nhớ đệm & tệp tạm?'),
-        content: const Text(
-          'Hành động này sẽ xoá an toàn các phân đoạn tải tạm thời và ảnh thu nhỏ bộ nhớ đệm.\n\n'
-          'CÁC BẢN NHẠC VÀ VIDEO ĐÃ TẢI XUỐNG CỦA BẠN SẼ KHÔNG BỊ XOÁ.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Huỷ')),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Xoá ngay', style: TextStyle(color: AppColors.accentCyan)),
-          ),
-        ],
-      ),
+      title: 'Dọn dẹp bộ nhớ đệm?',
+      message: AppStringsVi.cleanCacheConfirm,
+      icon: Icons.cleaning_services_rounded,
+      iconColor: AppColors.accentCyan,
+      confirmText: 'Dọn dẹp ngay',
+      cancelText: 'Hủy bỏ',
     );
 
     if (confirmed == true) {
+      HapticFeedback.mediumImpact();
       await _storage.clearTempFiles();
       await _loadStorageData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã dọn dẹp bộ nhớ đệm thành công')),
+          const SnackBar(
+            content: Text(AppStringsVi.cleanCacheSuccess),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -71,133 +67,205 @@ class _StorageSettingsScreenState extends State<StorageSettingsScreen> {
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
-        title: Text('Dung lượng & Bộ nhớ đệm', style: AppTypography.h2.copyWith(color: textPrimary)),
+        title: Text(
+          AppStringsVi.storageCenter,
+          style: TextStyle(
+            color: textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.accentCyan))
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16, vertical: AppSpacing.s16),
-              children: [
-                // Total Storage Summary Card
-                _buildSummaryCard(isDark, textPrimary, textSecondary),
-                const SizedBox(height: AppSpacing.s24),
-
-                // Breakdown list
-                _buildStorageItem('Nhạc / Âm thanh', _breakdown!.formattedAudio, AppColors.accentAmber, Icons.headphones_rounded),
-                const SizedBox(height: AppSpacing.s12),
-                _buildStorageItem('Video', _breakdown!.formattedVideo, AppColors.accentCyan, Icons.movie_rounded),
-                const SizedBox(height: AppSpacing.s12),
-                _buildStorageItem('Ảnh bìa & Thu nhỏ', _breakdown!.formattedArtwork, AppColors.accentBlue, Icons.image_rounded),
-                const SizedBox(height: AppSpacing.s12),
-                _buildStorageItem('Tệp tạm thời', _breakdown!.formattedTemp, AppColors.accentRed, Icons.folder_delete_rounded),
-                const SizedBox(height: AppSpacing.s32),
-
-                // Clear Cache Button
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkElevated : AppColors.lightElevated,
-                    borderRadius: AppRadius.radiusMd,
-                    border: Border.all(
-                      color: isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle,
-                    ),
-                  ),
-                  child: TextButton.icon(
-                    onPressed: _clearCache,
-                    icon: const Icon(Icons.cleaning_services_rounded, color: AppColors.accentCyan),
-                    label: Text(
-                      'Dọn dẹp bộ nhớ đệm',
-                      style: AppTypography.label.copyWith(color: AppColors.accentCyan),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildSummaryCard(bool isDark, Color textPrimary, Color textSecondary) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.s20),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: AppRadius.radiusXl,
-        border: Border.all(
-          color: isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Tổng dung lượng lưu trữ', style: AppTypography.bodySmall.copyWith(color: textSecondary)),
-          const SizedBox(height: 6),
-          Text(
-            _breakdown!.formattedTotal,
-            style: AppTypography.display.copyWith(
-              color: textPrimary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s16),
-
-          // Proportional Bar
-          ClipRRect(
-            borderRadius: AppRadius.radiusPill,
-            child: SizedBox(
-              height: 10,
-              child: _breakdown!.totalBytes > 0
-                  ? Row(
-                      children: [
-                        if (_breakdown!.audioBytes > 0)
-                          Expanded(
-                            flex: _breakdown!.audioBytes,
-                            child: Container(color: AppColors.accentAmber),
-                          ),
-                        if (_breakdown!.videoBytes > 0)
-                          Expanded(
-                            flex: _breakdown!.videoBytes,
-                            child: Container(color: AppColors.accentCyan),
-                          ),
-                        if (_breakdown!.artworkBytes > 0)
-                          Expanded(
-                            flex: _breakdown!.artworkBytes,
-                            child: Container(color: AppColors.accentBlue),
-                          ),
-                        if (_breakdown!.tempBytes > 0)
-                          Expanded(
-                            flex: _breakdown!.tempBytes,
-                            child: Container(color: AppColors.accentRed),
-                          ),
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Thẻ Tổng Quan Dung Lượng
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      gradient: isDark
+                          ? const LinearGradient(
+                              colors: [Color(0xFF1E2438), Color(0xFF131724)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : const LinearGradient(
+                              colors: [Color(0xFFFFFFFF), Color(0xFFEDF2F8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(isDark ? 50 : 10),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
                       ],
-                    )
-                  : Container(color: isDark ? AppColors.darkHighlight : AppColors.lightHighlight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppStringsVi.totalUsed,
+                          style: TextStyle(
+                            color: textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _breakdown?.formattedTotal ?? '0 B',
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: 1.0,
+                            minHeight: 8,
+                            backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  Text(
+                    'Chi tiết từng phân vùng',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Danh sách phân vùng
+                  _buildStorageRow(
+                    icon: Icons.music_note_rounded,
+                    color: AppColors.accentCyan,
+                    title: AppStringsVi.audioStorage,
+                    sizeStr: _breakdown?.formattedAudio ?? '0 B',
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+                  _buildStorageRow(
+                    icon: Icons.movie_rounded,
+                    color: AppColors.accentBlue,
+                    title: AppStringsVi.videoStorage,
+                    sizeStr: _breakdown?.formattedVideo ?? '0 B',
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+                  _buildStorageRow(
+                    icon: Icons.image_rounded,
+                    color: AppColors.accentViolet,
+                    title: AppStringsVi.artworkStorage,
+                    sizeStr: _breakdown?.formattedArtwork ?? '0 B',
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+                  _buildStorageRow(
+                    icon: Icons.cached_rounded,
+                    color: AppColors.accentAmber,
+                    title: AppStringsVi.tempStorage,
+                    sizeStr: _breakdown?.formattedTemp ?? '0 B',
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Nút Xóa bộ nhớ đệm
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        side: const BorderSide(color: AppColors.accentCyan, width: 1.3),
+                      ),
+                      icon: const Icon(Icons.cleaning_services_rounded, color: AppColors.accentCyan),
+                      label: const Text(
+                        AppStringsVi.cleanCacheButton,
+                        style: TextStyle(
+                          color: AppColors.accentCyan,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      onPressed: _clearCache,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildStorageItem(String label, String size, Color color, IconData icon) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildStorageRow({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String sizeStr,
+    required bool isDark,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s16, vertical: AppSpacing.s12),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: AppRadius.radiusMd,
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle,
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: AppSpacing.s12),
-          Expanded(
-            child: Text(label, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withAlpha(isDark ? 40 : 25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          Text(size, style: AppTypography.bodyMedium.copyWith(color: color, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(color: textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            sizeStr,
+            style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

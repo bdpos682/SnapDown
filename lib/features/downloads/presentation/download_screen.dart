@@ -1,13 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_radius.dart';
-import '../../../core/constants/app_spacing.dart';
-import '../../../core/constants/app_typography.dart';
-import '../../../core/database/models/media_item_model.dart';
+import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/database/repositories/media_repository.dart';
-import '../../../core/storage/storage_manager.dart';
 import '../../../core/utils/html_utils.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../player/controller/global_playback_controller.dart';
 import '../../player/presentation/music_player_screen.dart';
 import '../../player/presentation/video_player_screen.dart';
@@ -25,7 +24,6 @@ class DownloadsScreen extends ConsumerStatefulWidget {
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   final MediaRepository _repository = MediaRepository();
   final DownloadManager _manager = DownloadManager();
-  final StorageManager _storage = StorageManager();
 
   int _selectedFilterIndex = 0; // 0: Tất cả, 1: Đang tải, 2: Đã tải xong
 
@@ -37,72 +35,56 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final accent = isDark ? AppColors.accentCyan : AppColors.accentBlue;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
         title: Text(
-          'Tải xuống',
-          style: AppTypography.h2.copyWith(color: textPrimary, fontWeight: FontWeight.bold),
+          AppStringsVi.downloadManagement,
+          style: TextStyle(
+            color: textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.cleaning_services_rounded),
-            tooltip: 'Dọn dẹp danh sách đã tải',
+            tooltip: AppStringsVi.clearCompleted,
             onPressed: () => _showClearCompletedDialog(context),
           ),
-          const SizedBox(width: AppSpacing.s8),
+          const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: _buildFilterTabs(isDark, accent, textPrimary, textSecondary),
+          preferredSize: const Size.fromHeight(50),
+          child: _buildFilterPills(isDark, accent, textPrimary, textSecondary),
         ),
       ),
       body: StreamBuilder<List<DownloadTask>>(
         stream: _manager.tasksStream,
         initialData: _manager.tasks,
-        builder: (context, taskSnapshot) {
-          final activeTasks = taskSnapshot.data ?? [];
+        builder: (context, snapshot) {
+          final allTasks = snapshot.data ?? [];
 
-          return StreamBuilder<List<MediaItemModel>>(
-            stream: _repository.watchAllMedia(),
-            builder: (context, mediaSnapshot) {
-              final completedMedia = mediaSnapshot.data ?? [];
+          final filteredTasks = allTasks.where((task) {
+            if (_selectedFilterIndex == 1) {
+              return task.status == DownloadStatus.downloading ||
+                  task.status == DownloadStatus.queued;
+            } else if (_selectedFilterIndex == 2) {
+              return task.status == DownloadStatus.completed;
+            }
+            return true;
+          }).toList();
 
-              // Lọc các mục theo tab đã chọn
-              final filteredActiveTasks = activeTasks.where((t) {
-                if (_selectedFilterIndex == 2) return false; // Chỉ hiển thị đã xong
-                return t.status.isActive || t.status == DownloadStatus.failed || t.status == DownloadStatus.canceled;
-              }).toList();
+          if (filteredTasks.isEmpty) {
+            return _buildEmptyState(textPrimary, textSecondary);
+          }
 
-              final filteredCompleted = completedMedia.where((m) {
-                if (_selectedFilterIndex == 1) return false; // Chỉ hiển thị đang tải
-                // Tránh hiển thị trùng nếu task vừa tải xong đang tồn tại ở cả 2 nguồn
-                return !activeTasks.any((t) => t.id == m.id && t.status.isActive);
-              }).toList();
-
-              final totalItems = filteredActiveTasks.length + filteredCompleted.length;
-
-              if (totalItems == 0) {
-                return _buildEmptyState(textSecondary, isDark);
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 120),
-                itemCount: filteredActiveTasks.length + filteredCompleted.length,
-                itemBuilder: (context, index) {
-                  if (index < filteredActiveTasks.length) {
-                    final task = filteredActiveTasks[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.s12),
-                      child: _buildActiveTaskCard(context, task, isDark, textPrimary, textSecondary, accent),
-                    );
-                  } else {
-                    final media = filteredCompleted[index - filteredActiveTasks.length];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.s12),
-                      child: _buildCompletedMediaCard(context, media, isDark, textPrimary, textSecondary, accent),
-                    );
-                  }
-                },
-              );
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+            itemCount: filteredTasks.length,
+            itemBuilder: (context, index) {
+              final task = filteredTasks[index];
+              return _buildTaskCard(task, isDark, textPrimary, textSecondary, accent);
             },
           );
         },
@@ -110,32 +92,53 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     );
   }
 
-  Widget _buildFilterTabs(bool isDark, Color accent, Color textPrimary, Color textSecondary) {
-    final tabs = ['Tất cả', 'Đang tải', 'Đã xong'];
-    return Container(
+  Widget _buildFilterPills(
+    bool isDark,
+    Color accent,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final filters = [
+      AppStringsVi.tabAll,
+      AppStringsVi.tabDownloading,
+      AppStringsVi.tabCompleted,
+    ];
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
-        children: List.generate(tabs.length, (index) {
+        children: List.generate(filters.length, (index) {
           final isSelected = _selectedFilterIndex == index;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(
-                tabs[index],
-                style: TextStyle(
-                  color: isSelected ? Colors.white : textSecondary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _selectedFilterIndex = index);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? accent
+                      : (isDark ? AppColors.darkSurface : AppColors.lightElevated),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? accent
+                        : (isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle),
+                  ),
+                ),
+                child: Text(
+                  filters[index],
+                  style: TextStyle(
+                    color: isSelected ? Colors.black : textSecondary,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
-              selected: isSelected,
-              selectedColor: accent,
-              backgroundColor: isDark ? AppColors.darkElevated : AppColors.lightElevated,
-              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusPill),
-              side: BorderSide(
-                color: isSelected ? accent : (isDark ? AppColors.darkBorderSubtle : AppColors.lightBorderSubtle),
-              ),
-              onSelected: (_) => setState(() => _selectedFilterIndex = index),
             ),
           );
         }),
@@ -143,138 +146,120 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     );
   }
 
-  Widget _buildActiveTaskCard(
-    BuildContext context,
+  Widget _buildTaskCard(
     DownloadTask task,
     bool isDark,
     Color textPrimary,
     Color textSecondary,
     Color accent,
   ) {
+    final info = task.mediaInfo;
+    final isCompleted = task.status == DownloadStatus.completed;
     final isFailed = task.status == DownloadStatus.failed;
-    final isCanceled = task.status == DownloadStatus.canceled;
-    final isActive = task.status.isActive;
+    final isDownloading = task.status == DownloadStatus.downloading;
+    final isQueued = task.status == DownloadStatus.queued;
 
-    Color statusColor = isActive ? accent : AppColors.accentRed;
+    final progress = task.progress.clamp(0.0, 1.0);
+    final title = HtmlUtils.unescape(info.title);
+    final author = HtmlUtils.unescape(info.author);
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.s12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: AppRadius.radiusLg,
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? AppColors.darkBorderSubtle : AppColors.lightBorder,
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1.1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 40 : 8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Ảnh bìa
               ClipRRect(
-                borderRadius: AppRadius.radiusSm,
-                child: Container(
-                  width: 80,
-                  height: 52,
-                  color: AppColors.darkHighlight,
-                  child: task.mediaInfo.thumbnailUrl != null
-                      ? Image.network(
-                          task.mediaInfo.thumbnailUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.movie_rounded, color: AppColors.accentCyan),
-                        )
-                      : const Icon(Icons.movie_rounded, color: AppColors.accentCyan),
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: _buildThumbnail(task),
                 ),
               ),
-              const SizedBox(width: AppSpacing.s12),
+              const SizedBox(width: 12),
+
+              // Thông tin tiêu đề & trạng thái
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      HtmlUtils.unescape(task.mediaInfo.title),
-                      style: AppTypography.bodyMedium.copyWith(color: textPrimary, fontWeight: FontWeight.w600),
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      author,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: statusColor.withAlpha(30),
-                            borderRadius: AppRadius.radiusXs,
-                          ),
-                          child: Text(
-                            task.status.displayNameVi.toUpperCase(),
-                            style: AppTypography.caption.copyWith(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            '${task.selectedFormat.container.toUpperCase()} • ${task.selectedFormat.displayQuality}',
-                            style: AppTypography.caption.copyWith(color: textSecondary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                      style: TextStyle(color: textSecondary, fontSize: 11.5),
                     ),
                   ],
                 ),
               ),
-              if (isFailed || isCanceled) ...[
+
+              // Nút hành động nhanh
+              if (isCompleted)
                 IconButton(
-                  icon: Icon(Icons.replay_rounded, color: accent),
-                  tooltip: 'Tải lại',
-                  onPressed: () => _manager.retryTask(task.id),
-                ),
+                  icon: const Icon(Icons.play_circle_fill_rounded, size: 36, color: AppColors.accentCyan),
+                  tooltip: 'Phát ngay',
+                  onPressed: () => _playCompletedTask(task),
+                )
+              else if (isFailed)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.accentRed, size: 20),
-                  tooltip: 'Xóa tác vụ',
-                  onPressed: () => _manager.deleteTask(task.id),
+                  icon: const Icon(Icons.refresh_rounded, size: 28, color: AppColors.accentRed),
+                  tooltip: AppStringsVi.retryTask,
+                  onPressed: () {
+                    task.status = DownloadStatus.queued;
+                    task.errorMessage = null;
+                    _manager.enqueue(
+                      mediaInfo: task.mediaInfo,
+                      selectedFormat: task.selectedFormat,
+                      convertToMp3: task.convertToMp3,
+                      mp3Bitrate: task.mp3Bitrate,
+                    );
+                  },
                 ),
-              ] else ...[
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.accentRed),
-                  tooltip: 'Hủy tải',
-                  onPressed: () => _manager.cancelTask(task.id),
-                ),
-              ],
             ],
           ),
-          if (isFailed && task.errorMessage != null) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.accentRed.withAlpha(20),
-                borderRadius: AppRadius.radiusXs,
-              ),
-              child: Text(
-                'Lỗi: ${task.errorMessage}',
-                style: AppTypography.caption.copyWith(color: AppColors.accentRed),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-          if (isActive) ...[
-            const SizedBox(height: AppSpacing.s12),
+
+          const SizedBox(height: 10),
+
+          // Thanh tiến trình nếu đang tải
+          if (isDownloading || isQueued) ...[
             ClipRRect(
-              borderRadius: AppRadius.radiusPill,
+              borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
-                value: task.progress > 0 ? task.progress : null,
-                minHeight: 4,
-                backgroundColor: isDark ? AppColors.darkHighlight : AppColors.lightHighlight,
-                valueColor: AlwaysStoppedAnimation<Color>(accent),
+                value: isQueued ? null : progress,
+                minHeight: 5,
+                backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
               ),
             ),
             const SizedBox(height: 6),
@@ -282,12 +267,51 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${task.statusMessage} (${task.formattedProgress})',
-                  style: AppTypography.caption.copyWith(color: accent),
+                  task.statusMessage.isNotEmpty
+                      ? task.statusMessage
+                      : (isQueued ? AppStringsVi.statusQueued : AppStringsVi.statusDownloading),
+                  style: TextStyle(
+                    color: isDark ? AppColors.accentCyan : AppColors.accentBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                if (!isQueued && task.speedBytesPerSec > 0)
+                  Text(
+                    '${(progress * 100).toStringAsFixed(0)}% • ${AppStringsVi.formatSpeed(task.speedBytesPerSec)}',
+                    style: TextStyle(color: textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+              ],
+            ),
+          ] else if (isCompleted) ...[
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.accentGreen),
+                const SizedBox(width: 6),
                 Text(
-                  '${task.formattedSpeed} • Còn lại: ${task.formattedEta}',
-                  style: AppTypography.caption.copyWith(color: textSecondary),
+                  AppStringsVi.statusCompleted,
+                  style: const TextStyle(color: AppColors.accentGreen, fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                if (task.finalLocalPath != null)
+                  Text(
+                    _getFileSize(task.finalLocalPath!),
+                    style: TextStyle(color: textSecondary, fontSize: 11),
+                  ),
+              ],
+            ),
+          ] else if (isFailed) ...[
+            Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.accentRed),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    task.errorMessage ?? AppStringsVi.statusFailed,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.accentRed, fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -297,227 +321,100 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     );
   }
 
-  Widget _buildCompletedMediaCard(
-    BuildContext context,
-    MediaItemModel media,
-    bool isDark,
-    Color textPrimary,
-    Color textSecondary,
-    Color accent,
-  ) {
+  Widget _buildThumbnail(DownloadTask task) {
+    if (task.mediaInfo.thumbnailUrl != null) {
+      return Image.network(
+        task.mediaInfo.thumbnailUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, error, stack) => _defaultThumb(),
+      );
+    }
+    return _defaultThumb();
+  }
+
+  Widget _defaultThumb() {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.s12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: isDark ? AppColors.darkBorderSubtle : AppColors.lightBorder,
-        ),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => _playMedia(context, media),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: AppRadius.radiusSm,
-                  child: Container(
-                    width: 80,
-                    height: 52,
-                    color: AppColors.darkHighlight,
-                    child: media.thumbnailUrl != null
-                        ? Image.network(
-                            media.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              media.isVideo ? Icons.movie_rounded : Icons.music_note_rounded,
-                              color: accent,
-                            ),
-                          )
-                        : Icon(
-                            media.isVideo ? Icons.movie_rounded : Icons.music_note_rounded,
-                            color: accent,
-                          ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(120),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.s12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  HtmlUtils.unescape(media.title),
-                  style: AppTypography.bodyMedium.copyWith(color: textPrimary, fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentGreen.withAlpha(30),
-                        borderRadius: AppRadius.radiusXs,
-                      ),
-                      child: Text(
-                        'HOÀN TẤT',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.accentGreen,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '${media.container.toUpperCase()} • ${media.formattedFileSize} • ${media.formattedDuration}',
-                        style: AppTypography.caption.copyWith(color: textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.play_circle_fill_rounded, color: accent, size: 30),
-            tooltip: 'Phát ngay',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            onPressed: () => _playMedia(context, media),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: textSecondary, size: 20),
-            tooltip: 'Xóa tệp tải',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            onPressed: () => _showDeleteMediaDialog(context, media),
-          ),
-        ],
-      ),
+      color: AppColors.accentCyan.withAlpha(40),
+      child: const Icon(Icons.download_rounded, color: AppColors.accentCyan),
     );
   }
 
-  void _playMedia(BuildContext context, MediaItemModel media) {
-    ref.read(playbackControllerProvider.notifier).playLocalItem(media);
-    if (media.isVideo) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const VideoPlayerScreen()),
-      );
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-      );
+  String _getFileSize(String path) {
+    try {
+      final f = File(path);
+      if (f.existsSync()) {
+        return AppStringsVi.formatBytes(f.lengthSync());
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  Future<void> _playCompletedTask(DownloadTask task) async {
+    final path = task.finalLocalPath;
+    if (path == null) return;
+
+    final mediaItem = await _repository.getMediaById(task.id);
+    if (mediaItem != null && mounted) {
+      final controller = ref.read(playbackControllerProvider.notifier);
+      await controller.playLocalItem(mediaItem);
+
+      if (!mounted) return;
+      if (mediaItem.isVideo) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VideoPlayerScreen()),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
+        );
+      }
     }
   }
 
-  void _showDeleteMediaDialog(BuildContext context, MediaItemModel media) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xóa tệp tải xuống'),
-        content: Text('Bạn muốn xóa "${media.title}" khỏi danh sách tải xuống?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('HỦY'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              await _repository.deleteMedia(media.id);
-            },
-            child: const Text('XÓA KHỎI DANH SÁCH'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              await _storage.deleteFile(media.localPath);
-              if (media.thumbnailPath != null) {
-                await _storage.deleteFile(media.thumbnailPath!);
-              }
-              await _repository.deleteMedia(media.id);
-            },
-            child: const Text('XÓA CẢ TỆP VẬT LÝ'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showClearCompletedDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Dọn dẹp danh sách'),
-        content: const Text(
-          'Bạn có muốn xóa toàn bộ lịch sử các mục đã tải xuống thành công khỏi danh sách không? (Tệp âm thanh và video vẫn được giữ nguyên trong máy)',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('HỦY'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentRed),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final all = await _repository.getAllMedia();
-              for (final item in all) {
-                await _repository.deleteMedia(item.id);
-              }
-            },
-            child: const Text('XÓA LỊCH SỬ', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(Color textSecondary, bool isDark) {
+  Widget _buildEmptyState(Color textPrimary, Color textSecondary) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkHighlight : AppColors.lightHighlight,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.accentCyan.withAlpha(30),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.cloud_download_outlined, size: 36, color: AppColors.accentCyan),
             ),
-            child: Icon(
-              Icons.cloud_download_outlined,
-              color: isDark ? AppColors.accentCyan : AppColors.accentBlue,
-              size: 48,
+            const SizedBox(height: 16),
+            Text(
+              AppStringsVi.noDownloads,
+              style: TextStyle(color: textPrimary, fontSize: 17, fontWeight: FontWeight.w800),
             ),
-          ),
-          const SizedBox(height: AppSpacing.s16),
-          Text('Chưa có tệp tải xuống nào', style: AppTypography.h3),
-          const SizedBox(height: 6),
-          Text(
-            'Dán liên kết ở Trang chủ để bắt đầu phân tích và tải về.',
-            style: AppTypography.bodySmall.copyWith(color: textSecondary),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              AppStringsVi.noDownloadsDesc,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: textSecondary, fontSize: 13, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _showClearCompletedDialog(BuildContext context) async {
+    final confirmed = await AppDialogs.showConfirmDelete(
+      context: context,
+      title: AppStringsVi.clearConfirmTitle,
+      message: AppStringsVi.clearConfirmContent,
+      confirmText: 'Dọn sạch',
+      cancelText: 'Hủy bỏ',
+    );
+
+    if (confirmed) {
+      _manager.clearCompletedTasks();
+    }
   }
 }
