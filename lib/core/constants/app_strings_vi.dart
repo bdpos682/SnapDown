@@ -4,12 +4,12 @@ class AppStringsVi {
   AppStringsVi._();
 
   // Thương hiệu & Tiêu đề chung
-  static const String appName = 'BDSNAP';
+  static const String appName = 'BDPLAY';
   static const String appSlogan = 'Bộ tải & Trình phát đa phương tiện';
   static const String home = 'Trang chủ';
   static const String downloads = 'Tải về';
-  static const String musicLibrary = 'Kho nhạc';
-  static const String videoLibrary = 'Kho video';
+  static const String musicLibrary = 'Nhạc';
+  static const String videoLibrary = 'Video';
   static const String settings = 'Cài đặt';
   static const String storage = 'Dung lượng';
 

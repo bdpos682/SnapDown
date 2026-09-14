@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/database/repositories/media_repository.dart';
 import '../../../core/utils/html_utils.dart';
+import '../../library/presentation/widgets/add_to_playlist_sheet.dart';
 import '../controller/global_playback_controller.dart';
 import '../controller/playback_state.dart';
 
@@ -112,7 +113,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
     final playback = ref.watch(playbackControllerProvider);
     final controller = ref.read(playbackControllerProvider.notifier);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Tự động dừng/chạy đĩa than theo trạng thái phát để tiết kiệm CPU/pin
     if (playback.isPlaying && !_rotationController.isAnimating) {
@@ -121,9 +121,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       _rotationController.stop();
     }
 
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final accent = isDark ? AppColors.accentCyan : AppColors.accentBlue;
+    // Luôn luôn áp dụng giao diện tối Midnight Obsidian cho màn hình đang phát dù ở bất kỳ theme nào
+    const darkBg = Color(0xFF0C0F17);
+    const textPrimary = AppColors.darkTextPrimary;
+    const textSecondary = AppColors.darkTextSecondary;
+    const accent = AppColors.accentCyan;
 
     final currentPosMs = _dragPositionMs ?? playback.position.inMilliseconds.toDouble();
     final totalDurationMs = math.max(playback.duration.inMilliseconds.toDouble(), 1.0);
@@ -132,54 +134,64 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final title = HtmlUtils.unescape(playback.title.isNotEmpty ? playback.title : 'Chưa chọn bài hát');
     final artist = HtmlUtils.unescape(playback.artist.isNotEmpty ? playback.artist : AppStringsVi.appName);
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: textPrimary, size: 32),
-          tooltip: 'Thu nhỏ',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Column(
-          children: [
-            Text(
-              AppStringsVi.nowPlaying.toUpperCase(),
-              style: TextStyle(
-                color: accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: darkBg,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: darkBg,
+        appBar: AppBar(
+          backgroundColor: darkBg,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: textPrimary, size: 32),
+            tooltip: 'Thu nhỏ',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Column(
+            children: [
+              Text(
+                AppStringsVi.nowPlaying.toUpperCase(),
+                style: const TextStyle(
+                  color: accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              artist,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 2),
+              Text(
+                artist,
+                style: const TextStyle(
+                  color: textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
+            ],
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(
+                _sleepTimerRemainingMinutes != null ? Icons.alarm_on_rounded : Icons.alarm_rounded,
+                color: _sleepTimerRemainingMinutes != null ? accent : textPrimary,
+              ),
+              tooltip: 'Hẹn giờ tắt nhạc',
+              onPressed: () => _showSleepTimerDialog(context),
             ),
+            IconButton(
+              icon: const Icon(Icons.queue_music_rounded, color: textPrimary),
+              tooltip: 'Danh sách chờ phát',
+              onPressed: () => _showQueueBottomSheet(context, playback),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _sleepTimerRemainingMinutes != null ? Icons.alarm_on_rounded : Icons.alarm_rounded,
-              color: _sleepTimerRemainingMinutes != null ? accent : textPrimary,
-            ),
-            tooltip: 'Hẹn giờ tắt nhạc',
-            onPressed: () => _showSleepTimerDialog(context),
-          ),
-          IconButton(
-            icon: Icon(Icons.queue_music_rounded, color: textPrimary),
-            tooltip: 'Danh sách chờ phát',
-            onPressed: () => _showQueueBottomSheet(context, playback),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -204,12 +216,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                       shape: BoxShape.circle,
                       color: const Color(0xFF111319),
                       border: Border.all(
-                        color: isDark ? Colors.white.withAlpha(25) : Colors.black.withAlpha(20),
+                        color: Colors.white.withAlpha(25),
                         width: 5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withAlpha(isDark ? 60 : 35),
+                          color: accent.withAlpha(60),
                           blurRadius: 36,
                           spreadRadius: 2,
                         ),
@@ -230,7 +242,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
               const Spacer(flex: 2),
 
-              // Thông tin bài hát & Nút thích
+              // Thông tin bài hát & Nút thích / Nút thêm playlist
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -242,7 +254,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: textPrimary,
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -254,7 +266,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                           artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -263,19 +275,33 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   if (playback.localItem != null)
-                    IconButton(
-                      icon: Icon(
-                        playback.localItem!.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: playback.localItem!.isFavorite ? AppColors.accentRed : textSecondary,
-                        size: 28,
-                      ),
-                      tooltip: 'Thích bài hát',
-                      onPressed: () async {
-                        HapticFeedback.selectionClick();
-                        await _repository.toggleFavorite(playback.localItem!.id);
-                      },
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.playlist_add_rounded,
+                            color: textSecondary,
+                            size: 26,
+                          ),
+                          tooltip: 'Thêm vào danh sách phát',
+                          onPressed: () => AddToPlaylistSheet.show(context, playback.localItem!),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            playback.localItem!.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: playback.localItem!.isFavorite ? AppColors.accentRed : textSecondary,
+                            size: 26,
+                          ),
+                          tooltip: 'Thích bài hát',
+                          onPressed: () async {
+                            HapticFeedback.selectionClick();
+                            await _repository.toggleFavorite(playback.localItem!.id);
+                          },
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -290,7 +316,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                       trackHeight: 4,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                       activeTrackColor: accent,
-                      inactiveTrackColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      inactiveTrackColor: AppColors.darkBorder,
                       thumbColor: accent,
                       overlayColor: accent.withAlpha(40),
                     ),
@@ -441,7 +467,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                         trackHeight: 2.5,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
                         activeTrackColor: textSecondary,
-                        inactiveTrackColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        inactiveTrackColor: AppColors.darkBorder,
                         thumbColor: textPrimary,
                       ),
                       child: Slider(
@@ -464,71 +490,95 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           ),
         ),
       ),
+    ),
     );
   }
 
   void _showSleepTimerDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppColors.darkSurface
-          : AppColors.lightSurface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Hẹn giờ tự động tắt nhạc',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 14),
-              ListTile(
-                leading: const Icon(Icons.timer_off_rounded),
-                title: const Text('Tắt hẹn giờ'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _setSleepTimer(0);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.bedtime_rounded),
-                title: const Text('Sau 15 phút'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _setSleepTimer(15);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.bedtime_rounded),
-                title: const Text('Sau 30 phút'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _setSleepTimer(30);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.bedtime_rounded),
-                title: const Text('Sau 45 phút'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _setSleepTimer(45);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.bedtime_rounded),
-                title: const Text('Sau 60 phút (1 tiếng)'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _setSleepTimer(60);
-                },
-              ),
-            ],
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF141824),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: Colors.white.withAlpha(25), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(140),
+              blurRadius: 30,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(45),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Hẹn giờ tự động tắt nhạc',
+                  style: TextStyle(color: Colors.white, fontSize: 17.5, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                _buildSleepTimerTile(ctx, 'Tắt hẹn giờ', Icons.timer_off_rounded, 0),
+                _buildSleepTimerTile(ctx, 'Sau 15 phút', Icons.bedtime_rounded, 15),
+                _buildSleepTimerTile(ctx, 'Sau 30 phút', Icons.bedtime_rounded, 30),
+                _buildSleepTimerTile(ctx, 'Sau 45 phút', Icons.bedtime_rounded, 45),
+                _buildSleepTimerTile(ctx, 'Sau 60 phút (1 tiếng)', Icons.bedtime_rounded, 60),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSleepTimerTile(BuildContext ctx, String label, IconData icon, int minutes) {
+    final isCurrent = _sleepTimerRemainingMinutes == minutes ||
+        (_sleepTimerRemainingMinutes == null && minutes == 0);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: isCurrent ? AppColors.accentCyan.withAlpha(25) : Colors.white.withAlpha(8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCurrent ? AppColors.accentCyan : Colors.white.withAlpha(12),
+          width: isCurrent ? 1.4 : 1.0,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Icon(icon, color: isCurrent ? AppColors.accentCyan : Colors.white70, size: 22),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: isCurrent ? AppColors.accentCyan : Colors.white,
+            fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+            fontSize: 13.5,
+          ),
+        ),
+        trailing: isCurrent
+            ? const Icon(Icons.check_circle_rounded, color: AppColors.accentCyan, size: 20)
+            : null,
+        onTap: () {
+          Navigator.pop(ctx);
+          _setSleepTimer(minutes);
+        },
       ),
     );
   }
@@ -538,34 +588,72 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppColors.darkSurface
-          : AppColors.lightSurface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Lựa chọn tốc độ phát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                children: speeds.map((s) {
-                  final isSel = (playback.speed - s).abs() < 0.05;
-                  return ChoiceChip(
-                    label: Text('${s}x'),
-                    selected: isSel,
-                    onSelected: (_) {
-                      controller.setSpeed(s);
-                      Navigator.pop(ctx);
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF141824),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: Colors.white.withAlpha(25), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(140),
+              blurRadius: 30,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(45),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Lựa chọn tốc độ phát',
+                  style: TextStyle(color: Colors.white, fontSize: 17.5, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: speeds.map((s) {
+                    final isSel = (playback.speed - s).abs() < 0.05;
+                    return ChoiceChip(
+                      label: Text(
+                        '${s}x',
+                        style: TextStyle(
+                          color: isSel ? Colors.black : Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      selected: isSel,
+                      selectedColor: AppColors.accentCyan,
+                      backgroundColor: Colors.white.withAlpha(12),
+                      side: BorderSide(
+                        color: isSel ? AppColors.accentCyan : Colors.white.withAlpha(20),
+                      ),
+                      onSelected: (_) {
+                        controller.setSpeed(s);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
       ),
@@ -576,57 +664,235 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final queue = playback.queue;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppColors.darkSurface
-          : AppColors.lightSurface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141824),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(
+            color: Colors.white.withAlpha(25),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(140),
+              blurRadius: 30,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Danh sách đang chờ phát',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+              // Thanh gạt
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 6),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(45),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentCyan.withAlpha(80),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.queue_music_rounded, color: Colors.black, size: 22),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Danh sách chờ phát',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${queue.length} bản nhạc trong hàng đợi',
+                            style: TextStyle(
+                              color: Colors.white.withAlpha(160),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.pop(ctx),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withAlpha(18),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(color: Colors.white12, height: 1),
+
+              // Danh sách
               if (queue.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('Chỉ có 1 bài hát đang phát'),
+                  padding: EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      Icon(Icons.music_off_rounded, size: 48, color: Colors.white38),
+                      SizedBox(height: 12),
+                      Text(
+                        'Chỉ có 1 bài hát đang phát',
+                        style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
                 )
               else
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     itemCount: queue.length,
                     itemBuilder: (context, i) {
                       final item = queue[i];
                       final isCurrent = i == playback.currentIndex;
-                      return ListTile(
-                        leading: isCurrent
-                            ? const Icon(Icons.equalizer_rounded, color: AppColors.accentCyan)
-                            : Text('${i + 1}'),
-                        title: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                            color: isCurrent ? AppColors.accentCyan : null,
+                      final title = HtmlUtils.unescape(item.title);
+                      final artist = HtmlUtils.unescape(item.artist);
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? AppColors.accentCyan.withAlpha(25)
+                              : Colors.white.withAlpha(8),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isCurrent ? AppColors.accentCyan : Colors.white.withAlpha(12),
+                            width: isCurrent ? 1.4 : 1.0,
                           ),
                         ),
-                        subtitle: Text(item.artist, maxLines: 1),
-                        onTap: () {
-                          ref.read(playbackControllerProvider.notifier).playQueueItem(i);
-                          Navigator.pop(ctx);
-                        },
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: item.thumbnailPath != null &&
+                                            File(item.thumbnailPath!).existsSync()
+                                        ? Image.file(File(item.thumbnailPath!), fit: BoxFit.cover)
+                                        : Container(
+                                            color: AppColors.accentCyan.withAlpha(40),
+                                            child: const Icon(Icons.music_note_rounded,
+                                                color: AppColors.accentCyan, size: 20),
+                                          ),
+                                  ),
+                                  if (isCurrent)
+                                    Container(
+                                      color: Colors.black.withAlpha(130),
+                                      child: const Center(
+                                        child: Icon(Icons.equalizer_rounded,
+                                            color: AppColors.accentCyan, size: 22),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isCurrent ? AppColors.accentCyan : const Color(0xFFF8FAFC),
+                              fontSize: 13.5,
+                              fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            isCurrent ? '$artist • Đang phát' : artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isCurrent
+                                  ? AppColors.accentCyan.withAlpha(210)
+                                  : const Color(0xFF94A3B8),
+                              fontSize: 11.5,
+                              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: isCurrent
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentCyan.withAlpha(35),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'ĐANG PHÁT',
+                                    style: TextStyle(
+                                      color: AppColors.accentCyan,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  '#${i + 1}',
+                                  style: TextStyle(
+                                    color: Colors.white.withAlpha(90),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(playbackControllerProvider.notifier).playQueueItem(i);
+                            Navigator.pop(ctx);
+                          },
+                        ),
                       );
                     },
                   ),

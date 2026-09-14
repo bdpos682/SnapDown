@@ -20,6 +20,7 @@ class PlaybackStateModel {
   final bool isVideoMode;
   final bool isAudioOnly; // Video Audio-Only mode
   final bool isPipActive;
+  final bool is2xSpeedActive;
 
   const PlaybackStateModel({
     this.localItem,
@@ -37,6 +38,7 @@ class PlaybackStateModel {
     this.isVideoMode = false,
     this.isAudioOnly = false,
     this.isPipActive = false,
+    this.is2xSpeedActive = false,
   });
 
   bool get hasMedia => localItem != null || onlineInfo != null;
@@ -67,6 +69,7 @@ class PlaybackStateModel {
     bool? isVideoMode,
     bool? isAudioOnly,
     bool? isPipActive,
+    bool? is2xSpeedActive,
   }) {
     return PlaybackStateModel(
       localItem: clearLocalItem ? null : (localItem ?? this.localItem),
@@ -84,6 +87,7 @@ class PlaybackStateModel {
       isVideoMode: isVideoMode ?? this.isVideoMode,
       isAudioOnly: isAudioOnly ?? this.isAudioOnly,
       isPipActive: isPipActive ?? this.isPipActive,
+      is2xSpeedActive: is2xSpeedActive ?? this.is2xSpeedActive,
     );
   }
 }

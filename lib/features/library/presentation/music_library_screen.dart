@@ -13,6 +13,8 @@ import '../../../core/widgets/app_dialogs.dart';
 import '../../player/controller/global_playback_controller.dart';
 import '../../player/presentation/music_player_screen.dart';
 import '../controller/library_state_provider.dart';
+import 'playlist_detail_screen.dart';
+import 'widgets/add_to_playlist_sheet.dart';
 
 class MusicLibraryScreen extends ConsumerStatefulWidget {
   const MusicLibraryScreen({super.key});
@@ -419,14 +421,24 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
                         style: TextStyle(color: textSecondary, fontSize: 11),
                       ),
                     ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: item.isFavorite ? AppColors.accentRed : textSecondary.withAlpha(120),
-                        size: 22,
-                      ),
-                      tooltip: item.isFavorite ? 'Bỏ thích' : 'Yêu thích',
-                      onPressed: () => _toggleFavorite(item),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.playlist_add_rounded, color: textSecondary, size: 22),
+                          tooltip: 'Thêm vào danh sách',
+                          onPressed: () => AddToPlaylistSheet.show(context, item),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: item.isFavorite ? AppColors.accentRed : textSecondary.withAlpha(120),
+                            size: 21,
+                          ),
+                          tooltip: item.isFavorite ? 'Bỏ thích' : 'Yêu thích',
+                          onPressed: () => _toggleFavorite(item),
+                        ),
+                      ],
                     ),
                     onTap: () {
                       HapticFeedback.selectionClick();
@@ -561,26 +573,13 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
                     ),
                   ],
                 ),
-                onTap: () async {
+                onTap: () {
                   HapticFeedback.selectionClick();
-                  final nav = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-                  final tracks = await _repository.getPlaylistItems(p.id);
-                  if (tracks.isEmpty) {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Danh sách này chưa có bản nhạc nào!'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    return;
-                  }
-                  if (!mounted) return;
-                  final controller = ref.read(playbackControllerProvider.notifier);
-                  await controller.playAll(tracks, shuffle: false);
-                  if (!mounted) return;
-                  nav.push(
-                    MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PlaylistDetailScreen(playlist: p),
+                    ),
                   );
                 },
               ),

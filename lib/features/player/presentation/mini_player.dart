@@ -9,6 +9,7 @@ import '../../../core/utils/html_utils.dart';
 import '../controller/global_playback_controller.dart';
 import 'music_player_screen.dart';
 import 'video_player_screen.dart';
+import 'package:video_player/video_player.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
@@ -86,7 +87,7 @@ class MiniPlayer extends ConsumerWidget {
                                 child: SizedBox(
                                   width: 44,
                                   height: 44,
-                                  child: _buildArtwork(playback),
+                                  child: _buildArtwork(playback, controller),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -125,7 +126,31 @@ class MiniPlayer extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
+
+                      // Nút Bài trước
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          controller.skipToPrevious();
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.skip_previous_rounded,
+                            color: textPrimary,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
 
                       // Nút Bật / Tạm dừng
                       GestureDetector(
@@ -135,8 +160,8 @@ class MiniPlayer extends ConsumerWidget {
                           controller.togglePlayPause();
                         },
                         child: Container(
-                          width: 36,
-                          height: 36,
+                          width: 40,
+                          height: 40,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: AppColors.primaryGradient,
@@ -145,12 +170,36 @@ class MiniPlayer extends ConsumerWidget {
                             child: Icon(
                               playback.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                               color: Colors.black,
-                              size: 22,
+                              size: 24,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
+
+                      // Nút Bài tiếp theo
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          controller.skipToNext();
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.skip_next_rounded,
+                            color: textPrimary,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
 
                       // Nút Đóng / Tắt hẳn bài hát và đóng popup thẻ MiniPlayer
                       GestureDetector(
@@ -160,8 +209,8 @@ class MiniPlayer extends ConsumerWidget {
                           await controller.dismissPlayer();
                         },
                         child: Container(
-                          width: 34,
-                          height: 34,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isDark ? Colors.white.withAlpha(15) : Colors.black.withAlpha(8),
@@ -170,7 +219,7 @@ class MiniPlayer extends ConsumerWidget {
                             child: Icon(
                               Icons.close_rounded,
                               color: textSecondary,
-                              size: 19,
+                              size: 18,
                             ),
                           ),
                         ),
@@ -202,7 +251,46 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 
-  Widget _buildArtwork(dynamic playback) {
+  Widget _buildArtwork(dynamic playback, GlobalPlaybackController controller) {
+    if (playback.isVideoMode) {
+      if (!playback.isAudioOnly &&
+          controller.videoController != null &&
+          controller.videoController!.value.isInitialized) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: controller.videoController!.value.size.width,
+                height: controller.videoController!.value.size.height,
+                child: VideoPlayer(controller.videoController!),
+              ),
+            ),
+            Positioned(
+              right: 2,
+              bottom: 2,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.videocam_rounded, color: AppColors.accentCyan, size: 10),
+              ),
+            ),
+          ],
+        );
+      } else if (playback.isAudioOnly) {
+        return Container(
+          color: const Color(0xFF1E293B),
+          child: const Center(
+            child: Icon(Icons.headphones_rounded, color: AppColors.accentCyan, size: 22),
+          ),
+        );
+      }
+    }
+
     if (playback.thumbnailPath != null && File(playback.thumbnailPath!).existsSync()) {
       return Image.file(
         File(playback.thumbnailPath!),

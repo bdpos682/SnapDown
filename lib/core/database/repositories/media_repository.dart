@@ -274,6 +274,17 @@ class MediaRepository {
     return results.map((m) => MediaItemModel.fromMap(m)).toList();
   }
 
+  Future<List<String>> getPlaylistsContainingMedia(String mediaId) async {
+    final db = await _db;
+    final results = await db.query(
+      'playlist_items',
+      columns: ['playlist_id'],
+      where: 'media_id = ?',
+      whereArgs: [mediaId],
+    );
+    return results.map((r) => r['playlist_id'] as String).toList();
+  }
+
   Future<List<MediaItemModel>> searchMedia(String query, {String? mediaType}) async {
     final db = await _db;
     final sanitizedQuery = '%$query%';

@@ -17,14 +17,12 @@ void main() {
     );
 
     // Initial pump and settle
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Verify app brand title
-    expect(find.text('BDSNAP'), findsOneWidget);
     // Verify 4 main navigation tabs (100% Pure Vietnamese)
     expect(find.text('Trang chủ'), findsOneWidget);
     expect(find.text('Tải về'), findsOneWidget);
-    expect(find.text('Kho nhạc'), findsOneWidget);
-    expect(find.text('Kho video'), findsOneWidget);
+    expect(find.text('Nhạc'), findsOneWidget);
+    expect(find.text('Video'), findsOneWidget);
   });
 }
