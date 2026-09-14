@@ -16,8 +16,8 @@ void main() {
       ),
     );
 
-    // Initial pump and settle
-    await tester.pumpAndSettle();
+    // Initial pump
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Verify 4 main navigation tabs (100% Pure Vietnamese)
     expect(find.text('Trang chủ'), findsOneWidget);
