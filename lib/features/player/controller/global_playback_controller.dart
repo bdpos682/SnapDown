@@ -5,7 +5,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/widgets.dart' hide RepeatMode;
 import '../../../core/database/models/media_item_model.dart';
 import '../../../core/database/repositories/media_repository.dart';
 import '../../resolver/domain/media_format.dart';
