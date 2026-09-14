@@ -23,128 +23,90 @@ workflows:
           echo " KIỂM TRA MÔI TRƯỜNG"
           echo "=========================================="
 
-          echo ""
-          echo "Flutter:"
           flutter --version
-
-          echo ""
-          echo "Dart:"
           dart --version
-
-          echo ""
-          echo "Xcode:"
           xcodebuild -version
-
-          echo ""
-          echo "CocoaPods:"
           pod --version
 
           echo ""
-          echo "Thư mục hiện tại:"
+          echo "PWD:"
           pwd
 
 
       # ============================================================
-      # 2. CLEAN TOÀN BỘ BUILD CŨ
+      # 2. CLEAN
       # ============================================================
-      - name: Clean Flutter Project
+      - name: Clean Project
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " CLEAN FLUTTER PROJECT"
+          echo " CLEAN PROJECT"
           echo "=========================================="
 
           flutter clean
 
-          echo ""
-          echo "Xóa build cũ..."
-
           rm -rf build
-
-          echo ""
-          echo "Xóa Pods cũ..."
-
           rm -rf ios/Pods
           rm -rf ios/.symlinks
 
-          echo ""
-          echo "Xóa DerivedData..."
-
           rm -rf ~/Library/Developer/Xcode/DerivedData/* || true
-
-          echo ""
-          echo "Flutter pub get..."
 
           flutter pub get
 
           echo ""
-          echo "=========================================="
-          echo " CLEAN HOÀN TẤT"
-          echo "=========================================="
+          echo "CLEAN OK"
 
 
       # ============================================================
-      # 3. FIX IOS DEPLOYMENT TARGET = 15.0
+      # 3. IOS DEPLOYMENT TARGET = 15
       # ============================================================
       - name: Fix iOS Deployment Target
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " FIX IOS DEPLOYMENT TARGET = 15.0"
+          echo " IOS DEPLOYMENT TARGET = 15.0"
           echo "=========================================="
 
-          PODFILE_PATH="ios/Podfile"
-          PROJECT_FILE="ios/Runner.xcodeproj/project.pbxproj"
+          PODFILE="ios/Podfile"
+          PROJECT="ios/Runner.xcodeproj/project.pbxproj"
 
-          if [ ! -f "$PODFILE_PATH" ]; then
-            echo "LỖI: Không tìm thấy ios/Podfile"
+          if [ ! -f "$PODFILE" ]; then
+            echo "Không tìm thấy $PODFILE"
             exit 1
           fi
 
-          if [ ! -f "$PROJECT_FILE" ]; then
-            echo "LỖI: Không tìm thấy project.pbxproj"
+          if [ ! -f "$PROJECT" ]; then
+            echo "Không tìm thấy $PROJECT"
             exit 1
           fi
 
-          echo ""
-          echo "Sửa Podfile..."
-
+          # Nếu platform đang comment
           sed -i '' \
             "s/^# *platform :ios, .*/platform :ios, '15.0'/" \
-            "$PODFILE_PATH"
+            "$PODFILE"
 
+          # Nếu platform đang bật
           sed -i '' \
             "s/^platform :ios, .*/platform :ios, '15.0'/" \
-            "$PODFILE_PATH"
+            "$PODFILE"
 
-          echo ""
-          echo "Sửa Runner.xcodeproj..."
-
+          # Runner minimum target
           sed -i '' \
             's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' \
-            "$PROJECT_FILE"
+            "$PROJECT"
 
           echo ""
-          echo "------------------------------------------"
-          echo "Podfile platform:"
-          echo "------------------------------------------"
-
-          grep "platform :ios" "$PODFILE_PATH" || true
+          echo "Podfile:"
+          grep "platform :ios" "$PODFILE" || true
 
           echo ""
-          echo "------------------------------------------"
-          echo "Runner Deployment Target:"
-          echo "------------------------------------------"
+          echo "Deployment target:"
+          grep "IPHONEOS_DEPLOYMENT_TARGET" "$PROJECT" \
+            > /tmp/deployment_targets.txt || true
 
-          grep "IPHONEOS_DEPLOYMENT_TARGET" "$PROJECT_FILE" > /tmp/deployment_targets.txt || true
           head -20 /tmp/deployment_targets.txt || true
-
-          echo ""
-          echo "=========================================="
-          echo " IOS MINIMUM = 15.0"
-          echo "=========================================="
 
 
       # ============================================================
@@ -160,14 +122,9 @@ workflows:
 
           flutter pub get
 
-          echo ""
-          echo "=========================================="
-          echo " PUB GET HOÀN TẤT"
-          echo "=========================================="
-
 
       # ============================================================
-      # 5. REINSTALL COCOAPODS
+      # 5. COCOAPODS
       # ============================================================
       - name: Reinstall CocoaPods
         script: |
@@ -177,196 +134,158 @@ workflows:
           echo " REINSTALL COCOAPODS"
           echo "=========================================="
 
-          flutter pub get
-
           cd ios
 
-          echo ""
-          echo "------------------------------------------"
-          echo "Deintegrate Pods cũ"
-          echo "------------------------------------------"
-
           pod deintegrate || true
-
-          echo ""
-          echo "Xóa Pods / symlink / Podfile.lock cũ..."
 
           rm -rf Pods
           rm -rf .symlinks
           rm -f Podfile.lock
 
           echo ""
-          echo "Podfile platform:"
-
+          echo "Platform:"
           grep "platform :ios" Podfile || true
 
           echo ""
-          echo "------------------------------------------"
-          echo "CÀI COCOAPODS"
-          echo "------------------------------------------"
+          echo "Cài Pods..."
 
           pod install --repo-update
 
-          echo ""
-          echo "------------------------------------------"
-          echo "KIỂM TRA PODFILE.LOCK"
-          echo "------------------------------------------"
-
           if [ ! -f "Podfile.lock" ]; then
-            echo "LỖI: Không tạo được Podfile.lock"
+            echo "Không tạo được Podfile.lock"
             exit 1
           fi
-
-          echo "Pod install thành công."
 
           cd ..
 
           echo ""
-          echo "=========================================="
-          echo " COCOAPODS HOÀN TẤT"
-          echo "=========================================="
+          echo "COCOAPODS OK"
 
 
       # ============================================================
       # 6. VERIFY PLUGINS
       # ============================================================
-      - name: Verify Flutter Plugins
+      - name: Verify Plugins
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " VERIFY FLUTTER PLUGINS"
+          echo " VERIFY PLUGINS"
           echo "=========================================="
-
-          echo ""
-          echo "Kiểm tra audio_service..."
 
           if grep -q "audio_service" ios/Podfile.lock; then
-            echo "OK: audio_service có trong Podfile.lock"
-            grep "audio_service" ios/Podfile.lock || true
+            echo "OK: audio_service"
           else
-            echo "LỖI: audio_service KHÔNG có trong Podfile.lock"
+            echo "LỖI: audio_service không có trong Podfile.lock"
             exit 1
           fi
-
-          echo ""
-          echo "Kiểm tra ffmpeg_kit_flutter_new..."
 
           if grep -q "ffmpeg_kit_flutter_new" ios/Podfile.lock; then
-            echo "OK: ffmpeg_kit_flutter_new có trong Podfile.lock"
-            grep "ffmpeg_kit_flutter_new" ios/Podfile.lock || true
+            echo "OK: ffmpeg_kit_flutter_new"
           else
-            echo "LỖI: ffmpeg_kit_flutter_new KHÔNG có trong Podfile.lock"
+            echo "LỖI: ffmpeg_kit_flutter_new không có trong Podfile.lock"
+            exit 1
+          fi
+
+          if [ ! -d "ios/.symlinks/plugins/audio_service" ]; then
+            echo "LỖI: thiếu symlink audio_service"
+            exit 1
+          fi
+
+          if [ ! -d "ios/.symlinks/plugins/ffmpeg_kit_flutter_new" ]; then
+            echo "LỖI: thiếu symlink ffmpeg"
             exit 1
           fi
 
           echo ""
-          echo "Kiểm tra symlink audio_service..."
-
-          if [ -d "ios/.symlinks/plugins/audio_service" ]; then
-            echo "OK: audio_service symlink tồn tại"
-          else
-            echo "LỖI: Không tìm thấy audio_service symlink"
-            exit 1
-          fi
-
-          echo ""
-          echo "Kiểm tra symlink ffmpeg..."
-
-          if [ -d "ios/.symlinks/plugins/ffmpeg_kit_flutter_new" ]; then
-            echo "OK: ffmpeg symlink tồn tại"
-          else
-            echo "LỖI: Không tìm thấy ffmpeg symlink"
-            exit 1
-          fi
-
-          echo ""
-          echo "=========================================="
-          echo " PLUGINS OK"
-          echo "=========================================="
+          echo "PLUGINS OK"
 
 
       # ============================================================
-      # 7. VERIFY WORKSPACE
+      # 7. VERIFY XCODE WORKSPACE
       # ============================================================
-      - name: Verify Xcode Workspace
+      - name: Verify Workspace
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " VERIFY XCODE WORKSPACE"
+          echo " VERIFY WORKSPACE"
           echo "=========================================="
 
           if [ ! -d "ios/Runner.xcworkspace" ]; then
-            echo "LỖI: Không tìm thấy ios/Runner.xcworkspace"
+            echo "Không tìm thấy Runner.xcworkspace"
             exit 1
           fi
 
           if [ ! -d "ios/Pods" ]; then
-            echo "LỖI: Không tìm thấy ios/Pods"
+            echo "Không tìm thấy Pods"
             exit 1
           fi
 
           if [ ! -f "ios/Podfile.lock" ]; then
-            echo "LỖI: Không tìm thấy ios/Podfile.lock"
+            echo "Không tìm thấy Podfile.lock"
             exit 1
           fi
 
-          echo "Runner.xcworkspace: OK"
-          echo "Pods: OK"
-          echo "Podfile.lock: OK"
-
-          echo ""
-          echo "=========================================="
-          echo " WORKSPACE OK"
-          echo "=========================================="
+          echo "WORKSPACE OK"
 
 
       # ============================================================
-      # 8. BUILD IOS RELEASE UNSIGNED
+      # 8. BUILD IOS DEVICE - TẮT HOÀN TOÀN CODE SIGNING
       # ============================================================
       - name: Build iOS Unsigned
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " BUILD IOS RELEASE UNSIGNED"
+          echo " BUILD IOS DEVICE UNSIGNED"
           echo "=========================================="
 
-          flutter build ios \
-            --release \
-            --no-codesign
+          DERIVED_DATA="$PWD/build/ios_unsigned"
+
+          rm -rf "$DERIVED_DATA"
 
           echo ""
-          echo "------------------------------------------"
-          echo "KIỂM TRA RUNNER.APP"
-          echo "------------------------------------------"
+          echo "Build Runner bằng Xcode..."
+          echo "CODE SIGNING = OFF"
+          echo ""
 
-          APP_PATH="build/ios/iphoneos/Runner.app"
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+          echo ""
+          echo "=========================================="
+          echo " XCODE BUILD HOÀN TẤT"
+          echo "=========================================="
+
+          APP_PATH="$DERIVED_DATA/Build/Products/Release-iphoneos/Runner.app"
 
           if [ ! -d "$APP_PATH" ]; then
-            echo "LỖI:"
-            echo "Không tìm thấy $APP_PATH"
+            echo ""
+            echo "LỖI: Không tìm thấy Runner.app tại:"
+            echo "$APP_PATH"
+            echo ""
             exit 1
           fi
-
-          echo ""
-          echo "Runner.app tồn tại."
-
-          du -sh "$APP_PATH"
-
-          echo ""
-          echo "Kiểm tra executable Runner..."
 
           if [ ! -f "$APP_PATH/Runner" ]; then
             echo "LỖI: Không tìm thấy Runner executable"
             exit 1
           fi
-
-          ls -lh "$APP_PATH/Runner"
-
-          echo ""
-          echo "Kiểm tra Frameworks..."
 
           if [ ! -d "$APP_PATH/Frameworks" ]; then
             echo "LỖI: Không tìm thấy Frameworks"
@@ -374,18 +293,30 @@ workflows:
           fi
 
           echo ""
-          echo "Một số Frameworks:"
+          echo "Runner.app:"
+          echo "$APP_PATH"
+
+          echo ""
+          echo "Dung lượng Runner.app:"
+          du -sh "$APP_PATH"
+
+          echo ""
+          echo "Runner:"
+          ls -lh "$APP_PATH/Runner"
+
+          echo ""
+          echo "Danh sách framework:"
 
           find "$APP_PATH/Frameworks" \
             -maxdepth 1 \
             -type d \
             > /tmp/frameworks.txt
 
-          head -30 /tmp/frameworks.txt
+          head -40 /tmp/frameworks.txt
 
           echo ""
           echo "=========================================="
-          echo " BUILD IOS THÀNH CÔNG"
+          echo " BUILD IOS UNSIGNED THÀNH CÔNG"
           echo "=========================================="
 
 
@@ -400,22 +331,18 @@ workflows:
           echo " PACKAGE IPA"
           echo "=========================================="
 
-          APP_PATH="build/ios/iphoneos/Runner.app"
-          IPA_DIR="build/ipa_output"
+          APP_PATH="$PWD/build/ios_unsigned/Build/Products/Release-iphoneos/Runner.app"
+
+          IPA_DIR="$PWD/build/ipa_output"
           IPA_PATH="$IPA_DIR/bdsnap.ipa"
 
           if [ ! -d "$APP_PATH" ]; then
             echo "LỖI: Không tìm thấy Runner.app"
+            echo "$APP_PATH"
             exit 1
           fi
 
-          echo ""
-          echo "Xóa IPA cũ..."
-
           rm -rf "$IPA_DIR"
-
-          echo ""
-          echo "Tạo Payload..."
 
           mkdir -p "$IPA_DIR/Payload"
 
@@ -427,7 +354,7 @@ workflows:
             "$IPA_DIR/Payload/Runner.app"
 
           if [ ! -d "$IPA_DIR/Payload/Runner.app" ]; then
-            echo "LỖI: Copy Runner.app thất bại"
+            echo "Copy Runner.app thất bại"
             exit 1
           fi
 
@@ -439,36 +366,29 @@ workflows:
             zip -qry bdsnap.ipa Payload
           )
 
-          echo ""
-          echo "Kiểm tra IPA..."
-
           if [ ! -f "$IPA_PATH" ]; then
-            echo "LỖI: Không tạo được IPA"
+            echo "Không tạo được IPA"
             exit 1
           fi
 
           echo ""
-          echo "IPA đã tạo:"
-
+          echo "IPA:"
           ls -lh "$IPA_PATH"
 
           echo ""
-          echo "Đọc cấu trúc IPA..."
+          echo "Đọc nội dung IPA..."
 
           unzip -l "$IPA_PATH" > /tmp/ipa_contents.txt
-
-          echo ""
-          echo "50 file đầu tiên:"
 
           head -50 /tmp/ipa_contents.txt
 
           echo ""
-          echo "Kiểm tra Runner executable..."
+          echo "Kiểm tra Runner..."
 
           if grep -q "Payload/Runner.app/Runner" /tmp/ipa_contents.txt; then
-            echo "OK: Runner executable tồn tại"
+            echo "OK: Runner"
           else
-            echo "LỖI: Không tìm thấy Runner executable trong IPA"
+            echo "LỖI: Runner không tồn tại"
             exit 1
           fi
 
@@ -476,9 +396,9 @@ workflows:
           echo "Kiểm tra Info.plist..."
 
           if grep -q "Payload/Runner.app/Info.plist" /tmp/ipa_contents.txt; then
-            echo "OK: Info.plist tồn tại"
+            echo "OK: Info.plist"
           else
-            echo "LỖI: Không tìm thấy Info.plist"
+            echo "LỖI: Info.plist không tồn tại"
             exit 1
           fi
 
@@ -486,9 +406,9 @@ workflows:
           echo "Kiểm tra Frameworks..."
 
           if grep -q "Payload/Runner.app/Frameworks/" /tmp/ipa_contents.txt; then
-            echo "OK: Frameworks tồn tại"
+            echo "OK: Frameworks"
           else
-            echo "LỖI: Không tìm thấy Frameworks"
+            echo "LỖI: Frameworks không tồn tại"
             exit 1
           fi
 
@@ -496,9 +416,9 @@ workflows:
           echo "Kiểm tra Flutter.framework..."
 
           if grep -q "Payload/Runner.app/Frameworks/Flutter.framework/" /tmp/ipa_contents.txt; then
-            echo "OK: Flutter.framework tồn tại"
+            echo "OK: Flutter.framework"
           else
-            echo "LỖI: Không tìm thấy Flutter.framework"
+            echo "LỖI: Flutter.framework không tồn tại"
             exit 1
           fi
 
@@ -506,9 +426,9 @@ workflows:
           echo "Kiểm tra App.framework..."
 
           if grep -q "Payload/Runner.app/Frameworks/App.framework/" /tmp/ipa_contents.txt; then
-            echo "OK: App.framework tồn tại"
+            echo "OK: App.framework"
           else
-            echo "LỖI: Không tìm thấy App.framework"
+            echo "LỖI: App.framework không tồn tại"
             exit 1
           fi
 
@@ -516,7 +436,7 @@ workflows:
           echo "Kiểm tra FFmpeg..."
 
           if grep -q "libavformat.framework" /tmp/ipa_contents.txt; then
-            echo "OK: FFmpeg framework tồn tại"
+            echo "OK: libavformat.framework"
           else
             echo "CẢNH BÁO: Không tìm thấy libavformat.framework"
           fi
@@ -525,7 +445,7 @@ workflows:
           echo "Kiểm tra just_audio..."
 
           if grep -q "just_audio.framework" /tmp/ipa_contents.txt; then
-            echo "OK: just_audio.framework tồn tại"
+            echo "OK: just_audio.framework"
           else
             echo "CẢNH BÁO: Không tìm thấy just_audio.framework"
           fi
@@ -544,107 +464,62 @@ workflows:
 
 
       # ============================================================
-      # 10. FINAL CHECK IPA
+      # 10. FINAL CHECK
       # ============================================================
       - name: Final Check
         script: |
           set -euo pipefail
 
           echo "=========================================="
-          echo " FINAL CHECK IPA"
+          echo " FINAL CHECK"
           echo "=========================================="
 
-          IPA_PATH="build/ipa_output/bdsnap.ipa"
+          IPA_PATH="$PWD/build/ipa_output/bdsnap.ipa"
 
           if [ ! -f "$IPA_PATH" ]; then
             echo "LỖI: IPA không tồn tại"
             exit 1
           fi
 
-          echo ""
-          echo "IPA tồn tại."
-
           FILE_SIZE=$(stat -f%z "$IPA_PATH")
 
           echo ""
-          echo "Dung lượng IPA:"
+          echo "IPA:"
           ls -lh "$IPA_PATH"
 
           echo ""
-          echo "Dung lượng byte:"
-          echo "$FILE_SIZE"
+          echo "Size:"
+          echo "$FILE_SIZE bytes"
 
           if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo ""
-            echo "LỖI:"
-            echo "IPA nhỏ hơn 1 MB."
-            echo "Có khả năng build không đầy đủ."
+            echo "LỖI: IPA nhỏ bất thường (< 1MB)"
             exit 1
           fi
 
-          echo ""
-          echo "Đọc danh sách file IPA..."
+          unzip -l "$IPA_PATH" > /tmp/final_ipa.txt
 
-          unzip -l "$IPA_PATH" > /tmp/final_ipa_contents.txt
-
-          echo ""
-          echo "Kiểm tra cấu trúc Payload..."
-
-          if grep -q "Payload/Runner.app/" /tmp/final_ipa_contents.txt; then
-            echo "OK: Payload/Runner.app tồn tại"
-          else
-            echo "LỖI: Cấu trúc IPA không hợp lệ"
+          if ! grep -q "Payload/Runner.app/Runner" /tmp/final_ipa.txt; then
+            echo "LỖI: thiếu Runner"
             exit 1
           fi
 
-          echo ""
-          echo "Kiểm tra Runner..."
-
-          if grep -q "Payload/Runner.app/Runner" /tmp/final_ipa_contents.txt; then
-            echo "OK: Runner executable"
-          else
-            echo "LỖI: Runner executable không tồn tại"
+          if ! grep -q "Payload/Runner.app/Frameworks/Flutter.framework/" /tmp/final_ipa.txt; then
+            echo "LỖI: thiếu Flutter.framework"
             exit 1
           fi
 
-          echo ""
-          echo "Kiểm tra Flutter.framework..."
-
-          if grep -q "Payload/Runner.app/Frameworks/Flutter.framework/" /tmp/final_ipa_contents.txt; then
-            echo "OK: Flutter.framework"
-          else
-            echo "LỖI: Flutter.framework không tồn tại"
+          if ! grep -q "Payload/Runner.app/Frameworks/App.framework/" /tmp/final_ipa.txt; then
+            echo "LỖI: thiếu App.framework"
             exit 1
           fi
-
-          echo ""
-          echo "Kiểm tra App.framework..."
-
-          if grep -q "Payload/Runner.app/Frameworks/App.framework/" /tmp/final_ipa_contents.txt; then
-            echo "OK: App.framework"
-          else
-            echo "LỖI: App.framework không tồn tại"
-            exit 1
-          fi
-
-          echo ""
-          echo "Một số framework có trong IPA:"
-
-          grep "Payload/Runner.app/Frameworks/" \
-            /tmp/final_ipa_contents.txt \
-            > /tmp/framework_list.txt || true
-
-          head -40 /tmp/framework_list.txt || true
 
           echo ""
           echo "=========================================="
-          echo " BUILD HOÀN TẤT THÀNH CÔNG"
+          echo " BUILD THÀNH CÔNG"
           echo "=========================================="
 
           echo ""
-          echo "IPA:"
           echo "$IPA_PATH"
-
           echo ""
 
           ls -lh "$IPA_PATH"
