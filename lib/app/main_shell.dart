@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/constants/app_colors.dart';
-import '../core/constants/app_typography.dart';
 import '../core/navigation/navigation_provider.dart';
 import '../features/downloads/presentation/download_screen.dart';
 import '../features/home/presentation/home_screen.dart';
@@ -66,35 +64,29 @@ class MainShell extends ConsumerWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: bottomInset > 0 ? bottomInset : 14,
+        left: 20,
+        right: 20,
+        bottom: bottomInset > 0 ? bottomInset : 16,
         top: 4,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
+        borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Container(
-            height: 68,
+            height: 64,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.liquidGlassDark : AppColors.liquidGlassLight,
-              borderRadius: BorderRadius.circular(36),
+              color: isDark ? const Color(0xCC121624) : Colors.white.withAlpha(210),
+              borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: isDark ? Colors.white.withAlpha(45) : Colors.white.withAlpha(220),
-                width: 1.5,
+                color: isDark ? Colors.white.withAlpha(35) : Colors.white.withAlpha(240),
+                width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(isDark ? 90 : 25),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                  spreadRadius: -2,
-                ),
-                BoxShadow(
-                  color: (isDark ? AppColors.accentCyan : AppColors.accentBlue).withAlpha(isDark ? 28 : 18),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withAlpha(isDark ? 80 : 18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -115,8 +107,8 @@ class MainShell extends ConsumerWidget {
                   index: 1,
                   currentIndex: currentIndex,
                   label: 'Tải xuống',
-                  iconOutline: Icons.download_outlined,
-                  iconFilled: Icons.download_rounded,
+                  iconOutline: Icons.arrow_downward_outlined,
+                  iconFilled: Icons.arrow_downward_rounded,
                   isDark: isDark,
                 ),
                 _buildNavItem(
@@ -133,8 +125,8 @@ class MainShell extends ConsumerWidget {
                   index: 3,
                   currentIndex: currentIndex,
                   label: 'Video',
-                  iconOutline: Icons.movie_outlined,
-                  iconFilled: Icons.movie_rounded,
+                  iconOutline: Icons.play_circle_outline_rounded,
+                  iconFilled: Icons.play_circle_fill_rounded,
                   isDark: isDark,
                 ),
               ],
@@ -155,8 +147,8 @@ class MainShell extends ConsumerWidget {
     required bool isDark,
   }) {
     final isSelected = index == currentIndex;
-    final activeColor = isDark ? AppColors.accentCyan : AppColors.accentBlue;
-    final inactiveColor = isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary;
+    final activeColor = isDark ? const Color(0xFF00F2FE) : const Color(0xFF007AFF);
+    final inactiveColor = isDark ? Colors.white.withAlpha(120) : const Color(0xFF8E8E93);
 
     return Expanded(
       child: GestureDetector(
@@ -165,59 +157,51 @@ class MainShell extends ConsumerWidget {
           HapticFeedback.selectionClick();
           ref.read(navigationTabProvider.notifier).setTab(index);
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: isSelected
-                ? LinearGradient(
-                    colors: isDark
-                        ? [
-                            AppColors.accentCyan.withAlpha(50),
-                            AppColors.accentBlue.withAlpha(20),
-                          ]
-                        : [
-                            AppColors.accentBlue.withAlpha(40),
-                            AppColors.accentCyan.withAlpha(20),
-                          ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            border: isSelected
-                ? Border.all(
-                    color: activeColor.withAlpha(isDark ? 80 : 60),
-                    width: 1,
-                  )
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedScale(
-                scale: isSelected ? 1.15 : 1.0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutBack,
-                child: Icon(
-                  isSelected ? iconFilled : iconOutline,
-                  color: isSelected ? activeColor : inactiveColor,
-                  size: 22,
-                ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: isSelected ? 1.12 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              child: Icon(
+                isSelected ? iconFilled : iconOutline,
+                color: isSelected ? activeColor : inactiveColor,
+                size: 24,
               ),
-              const SizedBox(height: 3),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                style: AppTypography.caption.copyWith(
-                  color: isSelected ? activeColor : inactiveColor,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 10,
-                ),
-                child: Text(label),
+            ),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              style: TextStyle(
+                color: isSelected ? activeColor : inactiveColor,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 10.5,
+                letterSpacing: -0.2,
               ),
-            ],
-          ),
+              child: Text(label),
+            ),
+            const SizedBox(height: 3),
+            // Liquid Droplet Indicator
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: isSelected ? 14 : 0,
+              height: 3,
+              decoration: BoxDecoration(
+                color: isSelected ? activeColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withAlpha(120),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          ],
         ),
       ),
     );
