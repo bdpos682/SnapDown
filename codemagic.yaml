@@ -32,7 +32,10 @@ workflows:
       - name: Install and Update Pods
         script: |
           echo "--- BẮT ĐẦU CÀI ĐẶT VÀ CẬP NHẬT PODS ---"
-          (cd ios && pod update --repo-update)
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
           echo "--- HOÀN THÀNH CÀI ĐẶT VÀ CẬP NHẬT PODS ---"
 
       - name: Build iOS (XCODEBUILD Manual)
