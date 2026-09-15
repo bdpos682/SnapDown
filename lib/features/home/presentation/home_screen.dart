@@ -10,7 +10,6 @@ import '../../settings/presentation/storage_settings_screen.dart';
 import 'analyze_sheet.dart';
 import 'widgets/home_download_pulse_card.dart';
 import 'widgets/quick_platform_grid.dart';
-import 'widgets/smart_clipboard_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,50 +18,25 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _urlController = TextEditingController();
   final FocusNode _urlFocusNode = FocusNode();
 
   bool _isAnalyzing = false;
   String _detectedPlatform = '';
-  String? _clipboardUrl;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _urlController.addListener(_onUrlChanged);
-    _checkClipboardForLink();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkClipboardForLink();
-    }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _urlController.removeListener(_onUrlChanged);
     _urlController.dispose();
     _urlFocusNode.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkClipboardForLink() async {
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = data?.text?.trim() ?? '';
-      if (text.isNotEmpty &&
-          (text.startsWith('http://') || text.startsWith('https://')) &&
-          text != _urlController.text.trim()) {
-        if (mounted) {
-          setState(() => _clipboardUrl = text);
-        }
-      }
-    } catch (_) {}
   }
 
   void _onUrlChanged() {
@@ -102,7 +76,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
 
     _urlController.text = text;
     _urlController.selection = TextSelection.collapsed(offset: text.length);
-    setState(() => _clipboardUrl = null);
     _startAnalysis(text);
   }
 
@@ -130,7 +103,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       if (!mounted) return;
 
       HapticFeedback.selectionClick();
-      setState(() => _clipboardUrl = null);
 
       showModalBottomSheet<void>(
         context: context,
@@ -180,19 +152,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
               _buildTopHeader(isDark, textPrimary, textSecondary),
 
               const SizedBox(height: 20),
-
-              // Thẻ thông báo phát hiện liên kết trong bộ nhớ tạm
-              if (_clipboardUrl != null)
-                SmartClipboardBanner(
-                  detectedUrl: _clipboardUrl!,
-                  onAnalyze: () {
-                    _urlController.text = _clipboardUrl!;
-                    _startAnalysis(_clipboardUrl!);
-                  },
-                  onDismiss: () {
-                    setState(() => _clipboardUrl = null);
-                  },
-                ),
 
               // Thẻ Trung tâm Chỉ huy Nhập Liên kết
               _buildInputCard(isDark, textPrimary, textSecondary),

@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
-import 'package:flutter/widgets.dart' hide RepeatMode;
+import 'package:flutter/widgets.dart';
 import '../../../core/database/models/media_item_model.dart';
 import '../../../core/database/repositories/media_repository.dart';
 import '../../resolver/domain/media_format.dart';
@@ -21,20 +22,35 @@ final playbackControllerProvider =
 
 class GlobalPlaybackController extends Notifier<PlaybackStateModel> with WidgetsBindingObserver {
   static const MethodChannel _pipChannel = MethodChannel('com.snapvideo.snapdown/pip');
+  VideoPlayerController? _videoController;
 
   late final MediaRepository _repository;
   SnapAudioHandler? _audioHandler;
-  VideoPlayerController? _videoController;
 
   Timer? _positionSaveTimer;
   StreamSubscription? _audioStateSub;
   StreamSubscription? _audioPosSub;
+
+  Duration _lastEmittedAudioPos = Duration.zero;
+  Duration _lastEmittedVideoPos = Duration.zero;
 
   bool _isBackgroundAudioActive = false;
   double _savedSpeedBefore2x = 1.0;
 
   VideoPlayerController? get videoController => _videoController;
   bool get isBackgroundAudioActive => _isBackgroundAudioActive;
+
+  /// Cập nhật state an toàn, đảm bảo không gọi notifyListeners khi Flutter đang trong pha persistentCallbacks
+  /// tránh hoàn toàn lỗi '_lifecycleState != _ElementLifecycle.defunct'.
+  void _safeSetState(PlaybackStateModel Function(PlaybackStateModel) updater) {
+    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        state = updater(state);
+      });
+    } else {
+      state = updater(state);
+    }
+  }
 
   @override
   PlaybackStateModel build() {
@@ -144,11 +160,11 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
 
     _audioStateSub = _audioHandler!.playbackState.listen((ps) {
       if (!state.isVideoMode || _isBackgroundAudioActive || state.isAudioOnly) {
-        state = state.copyWith(
+        _safeSetState((s) => s.copyWith(
           isPlaying: ps.playing,
           bufferedPosition: ps.bufferedPosition,
           speed: ps.speed,
-        );
+        ));
 
         if (ps.processingState == AudioProcessingState.completed) {
           _handlePlaybackCompleted();
@@ -158,13 +174,17 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
 
     _audioPosSub = _audioHandler!.player.positionStream.listen((pos) {
       if (!state.isVideoMode || _isBackgroundAudioActive || state.isAudioOnly) {
-        state = state.copyWith(position: pos);
+        final diff = (pos - _lastEmittedAudioPos).abs();
+        if (diff >= const Duration(milliseconds: 250) || pos == Duration.zero) {
+          _lastEmittedAudioPos = pos;
+          _safeSetState((s) => s.copyWith(position: pos));
+        }
       }
     });
 
     _audioHandler!.player.durationStream.listen((dur) {
       if ((!state.isVideoMode || _isBackgroundAudioActive || state.isAudioOnly) && dur != null) {
-        state = state.copyWith(duration: dur);
+        _safeSetState((s) => s.copyWith(duration: dur));
       }
     });
 
@@ -314,12 +334,19 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
   void _onVideoTick() {
     if (_videoController == null) return;
     final val = _videoController!.value;
-    state = state.copyWith(
-      isPlaying: val.isPlaying,
-      position: val.position,
-      duration: val.duration,
-      bufferedPosition: val.buffered.isNotEmpty ? val.buffered.last.end : Duration.zero,
-    );
+    final diff = (val.position - _lastEmittedVideoPos).abs();
+    final shouldUpdatePos = diff >= const Duration(milliseconds: 250) || val.position == Duration.zero;
+    final statusChanged = val.isPlaying != state.isPlaying || val.duration != state.duration;
+
+    if (shouldUpdatePos || statusChanged) {
+      _lastEmittedVideoPos = val.position;
+      _safeSetState((s) => s.copyWith(
+        isPlaying: val.isPlaying,
+        position: val.position,
+        duration: val.duration,
+        bufferedPosition: val.buffered.isNotEmpty ? val.buffered.last.end : Duration.zero,
+      ));
+    }
 
     if (val.duration > Duration.zero &&
         val.position >= (val.duration - const Duration(milliseconds: 200)) &&
@@ -422,6 +449,8 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
   }
 
   Future<void> seek(Duration position) async {
+    _lastEmittedAudioPos = position;
+    _lastEmittedVideoPos = position;
     if (state.isVideoMode && !_isBackgroundAudioActive && !state.isAudioOnly) {
       await _videoController?.seekTo(position);
     } else {

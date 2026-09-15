@@ -85,6 +85,17 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
     }
   }
 
+  void _showToast(String msg) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        duration: const Duration(milliseconds: 1400),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -94,6 +105,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
 
     final audioAsync = ref.watch(audioLibraryProvider);
     final playlistsAsync = ref.watch(playlistListProvider);
+    final currentMediaId = ref.watch(playbackControllerProvider.select((s) => s.mediaId));
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -160,7 +172,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
           Expanded(
             child: _selectedFilter == 2
                 ? _buildPlaylistsView(playlistsAsync, isDark, textPrimary, textSecondary)
-                : _buildTracksView(audioAsync, isDark, textPrimary, textSecondary, accent),
+                : _buildTracksView(audioAsync, isDark, textPrimary, textSecondary, accent, currentMediaId),
           ),
         ],
       ),
@@ -218,6 +230,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
     Color textPrimary,
     Color textSecondary,
     Color accent,
+    String? currentMediaId,
   ) {
     return audioAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.accentCyan)),
@@ -260,8 +273,6 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
           );
         }
 
-        final currentMediaId = ref.watch(playbackControllerProvider).mediaId;
-
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
           children: [
@@ -303,13 +314,8 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
                         ),
                         onPressed: () async {
                           HapticFeedback.mediumImpact();
-                          final nav = Navigator.of(context);
                           final controller = ref.read(playbackControllerProvider.notifier);
                           await controller.playAll(filtered, shuffle: false);
-                          if (!mounted) return;
-                          nav.push(
-                            MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-                          );
                         },
                       ),
                     ),
@@ -325,13 +331,8 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
                     tooltip: 'Trộn bài ngẫu nhiên',
                     onPressed: () async {
                       HapticFeedback.mediumImpact();
-                      final nav = Navigator.of(context);
                       final controller = ref.read(playbackControllerProvider.notifier);
                       await controller.playAll(filtered, shuffle: true);
-                      if (!mounted) return;
-                      nav.push(
-                        MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-                      );
                     },
                   ),
                 ],
@@ -533,25 +534,14 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen> {
                       tooltip: 'Phát toàn bộ danh sách này',
                       onPressed: () async {
                         HapticFeedback.mediumImpact();
-                        final nav = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.of(context);
                         final tracks = await _repository.getPlaylistItems(p.id);
                         if (tracks.isEmpty) {
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Danh sách này chưa có bản nhạc nào! Hãy thêm nhạc vào danh sách trước.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          _showToast('Danh sách này chưa có bản nhạc nào!');
                           return;
                         }
                         if (!mounted) return;
                         final controller = ref.read(playbackControllerProvider.notifier);
                         await controller.playAll(tracks, shuffle: false);
-                        if (!mounted) return;
-                        nav.push(
-                          MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-                        );
                       },
                     ),
                     IconButton(

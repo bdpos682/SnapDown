@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
@@ -9,6 +9,7 @@ import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/utils/html_utils.dart';
 import '../controller/global_playback_controller.dart';
 import '../controller/playback_state.dart';
+import '../../../core/theme/theme_provider.dart';
 
 enum VideoAspectRatioMode {
   fit,
@@ -45,6 +46,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Sing
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
     _startHideTimer();
   }
 
@@ -309,6 +319,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Sing
     _seekIndicatorTimer?.cancel();
     _hudTimer?.cancel();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+    final themeMode = ref.read(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      ),
+    );
+
     super.dispose();
   }
 
@@ -340,12 +363,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Sing
           SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          top: !_isLandscape,
-          bottom: !_isLandscape,
-          child: Stack(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.black,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            top: !_isLandscape,
+            bottom: !_isLandscape,
+            child: Stack(
             fit: StackFit.expand,
             children: [
               // Trình hiển thị video chính hoặc Màn hình chỉ nghe tiếng
@@ -595,7 +626,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Sing
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   /// Màn hình giao diện khi ở chế độ "Chỉ nghe âm thanh"

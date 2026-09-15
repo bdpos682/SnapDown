@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
@@ -9,6 +9,7 @@ import '../../../core/constants/app_strings_vi.dart';
 import '../../../core/database/repositories/media_repository.dart';
 import '../../../core/utils/html_utils.dart';
 import '../../library/presentation/widgets/add_to_playlist_sheet.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../controller/global_playback_controller.dart';
 import '../controller/playback_state.dart';
 
@@ -33,6 +34,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF0C0F17),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+
     _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 20),
@@ -57,6 +68,19 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   void dispose() {
     _rotationController.dispose();
     _sleepTimer?.cancel();
+
+    final themeMode = ref.read(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      ),
+    );
+
     super.dispose();
   }
 
@@ -105,8 +129,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<PlaybackStateModel>(playbackControllerProvider, (previous, next) {
-      if (!next.hasMedia && mounted) {
+    ref.listen<bool>(playbackControllerProvider.select((s) => s.hasMedia), (previous, hasMedia) {
+      if (!hasMedia && mounted) {
         Navigator.of(context).maybePop();
       }
     });
@@ -147,6 +171,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         appBar: AppBar(
           backgroundColor: darkBg,
           elevation: 0,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+            systemNavigationBarColor: darkBg,
+            systemNavigationBarIconBrightness: Brightness.light,
+          ),
           leading: IconButton(
             icon: const Icon(Icons.keyboard_arrow_down_rounded, color: textPrimary, size: 32),
             tooltip: 'Thu nhỏ',

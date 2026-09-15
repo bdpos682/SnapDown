@@ -425,12 +425,6 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                                             HapticFeedback.mediumImpact();
                                             final controller = ref.read(playbackControllerProvider.notifier);
                                             await controller.playAll(_tracks, shuffle: false);
-                                            if (context.mounted) {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-                                              );
-                                            }
                                           },
                                   ),
                                 ),
@@ -449,12 +443,6 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                                         HapticFeedback.mediumImpact();
                                         final controller = ref.read(playbackControllerProvider.notifier);
                                         await controller.playAll(_tracks, shuffle: true);
-                                        if (context.mounted) {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => const MusicPlayerScreen()),
-                                          );
-                                        }
                                       },
                               ),
                               const SizedBox(width: 8),
