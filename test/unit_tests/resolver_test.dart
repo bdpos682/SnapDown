@@ -73,8 +73,8 @@ void main() {
       expect(registry.findResolver(mp3), isA<DirectResolver>());
     });
 
-    test('Throws UnsupportedPlatformException on unsupported URLs', () {
-      final unsupported = Uri.parse('https://example.com/article/read-this');
+    test('Throws UnsupportedPlatformException on unsupported schemes', () {
+      final unsupported = Uri.parse('ftp://example.com/article/video.mp4');
       expect(
         () => registry.analyze(unsupported),
         throwsA(isA<UnsupportedPlatformException>()),

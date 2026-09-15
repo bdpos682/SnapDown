@@ -55,7 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       detected = 'twitter';
     } else if (text.contains('vimeo.com')) {
       detected = 'vimeo';
-    } else if (text.endsWith('.mp4') || text.endsWith('.mp3') || text.endsWith('.m4a')) {
+    } else if (text.startsWith('http://') || text.startsWith('https://') || text.endsWith('.mp4') || text.endsWith('.mp3') || text.endsWith('.m4a')) {
       detected = 'direct';
     }
 

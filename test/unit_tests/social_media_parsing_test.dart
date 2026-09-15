@@ -2,7 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snap_video/features/resolver/domain/media_format.dart';
 import 'package:snap_video/features/resolver/domain/media_info.dart';
 import 'package:snap_video/features/resolver/platforms/facebook/facebook_resolver.dart';
+import 'package:snap_video/features/resolver/platforms/instagram/instagram_resolver.dart';
 import 'package:snap_video/features/resolver/platforms/tiktok/tiktok_resolver.dart';
+import 'package:snap_video/features/resolver/platforms/twitter/twitter_resolver.dart';
+import 'package:snap_video/features/resolver/platforms/direct/direct_resolver.dart';
+import 'package:snap_video/features/resolver/domain/resolver_registry.dart';
 
 void main() {
   group('Social Media Resolver Tests (TikTok, Facebook)', () {
@@ -107,6 +111,73 @@ void main() {
       expect(info.videoFormats.length, 1);
       expect(info.audioFormats.length, 1);
       expect(info.audioFormats.first.audioCodec, 'aac');
+    });
+
+    test('Instagram Reel Resolver resolves reel link with video and audio streams', () async {
+      final igResolver = InstagramResolver();
+      final igUri = Uri.parse('https://www.instagram.com/reel/DZ8EQEVzl3k/?stkn=ZXprMGRkemUwbjF1');
+      expect(igResolver.supports(igUri), isTrue);
+
+      final igInfo = await igResolver.analyze(igUri);
+      expect(igInfo.platform, 'instagram');
+      expect(igInfo.mediaId, 'DZ8EQEVzl3k');
+      expect(igInfo.formats.isNotEmpty, isTrue);
+      expect(igInfo.videoFormats.isNotEmpty, isTrue);
+      expect(igInfo.audioFormats.isNotEmpty, isTrue);
+      expect(igInfo.formats.first.streamUrl.toString(), startsWith('https://'));
+    });
+
+    test('Twitter/X Resolver extracts video variants and audio formats with resolutions', () async {
+      final twResolver = TwitterResolver();
+      final xUri = Uri.parse('https://x.com/Lor_idol/status/2097855805928382506/video/1?s=46');
+      expect(twResolver.supports(xUri), isTrue);
+
+      final twInfo = await twResolver.analyze(xUri);
+      expect(twInfo.platform, 'twitter');
+      expect(twInfo.mediaId, '2097855805928382506');
+      expect(twInfo.formats.length, greaterThanOrEqualTo(2));
+      expect(twInfo.videoFormats.isNotEmpty, isTrue);
+      expect(twInfo.bestAudio, isNotNull);
+      expect(twInfo.videoFormats.first.resolution, contains('p'));
+    });
+
+    test('DirectResolver supports universal HTTP/HTTPS links and gives friendly message for Zalo Video', () async {
+      final directResolver = DirectResolver();
+      final zaloUri = Uri.parse('https://zalo.video/s/SgZ3eHUtX');
+      expect(directResolver.supports(zaloUri), isTrue);
+
+      expect(
+        () => directResolver.analyze(zaloUri),
+        throwsA(isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('Zalo Video'),
+        )),
+      );
+    });
+
+    test('ResolverRegistry properly routes Instagram, Twitter/X, and Zalo/Direct URLs', () async {
+      final registry = ResolverRegistry();
+
+      // 1. Instagram
+      final igInfo = await registry.analyze(Uri.parse('https://www.instagram.com/reel/DZ8EQEVzl3k/?stkn=ZXprMGRkemUwbjF1'));
+      expect(igInfo.platform, 'instagram');
+      expect(igInfo.formats.isNotEmpty, isTrue);
+
+      // 2. Twitter / X
+      final twInfo = await registry.analyze(Uri.parse('https://x.com/Lor_idol/status/2097855805928382506/video/1?s=46'));
+      expect(twInfo.platform, 'twitter');
+      expect(twInfo.formats.isNotEmpty, isTrue);
+
+      // 3. Zalo Video through Registry
+      expect(
+        () => registry.analyze(Uri.parse('https://zalo.video/s/SgZ3eHUtX')),
+        throwsA(isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('Zalo Video'),
+        )),
+      );
     });
   });
 }
