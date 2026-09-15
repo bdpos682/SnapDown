@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
@@ -113,11 +114,17 @@ class SnapAudioHandler extends BaseAudioHandler with SeekHandler {
     bool isLocal = true,
   }) async {
     Uri? artUri;
-    if (artworkUri != null && artworkUri.isNotEmpty) {
-      if (artworkUri.startsWith('http://') || artworkUri.startsWith('https://')) {
-        artUri = Uri.tryParse(artworkUri);
+    if (artworkUri != null && artworkUri.trim().isNotEmpty) {
+      final clean = artworkUri.trim();
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        artUri = Uri.tryParse(clean);
+      } else if (clean.startsWith('file://')) {
+        artUri = Uri.tryParse(clean);
       } else {
-        artUri = Uri.file(artworkUri);
+        final f = File(clean);
+        if (f.existsSync()) {
+          artUri = Uri.file(f.path);
+        }
       }
     }
 

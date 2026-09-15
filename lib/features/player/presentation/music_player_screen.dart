@@ -454,17 +454,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                   // Nút Lặp lại
                   IconButton(
                     icon: Icon(
-                      playback.repeatMode == RepeatMode.one
+                      playback.repeatMode == PlaybackRepeatMode.one
                           ? Icons.repeat_one_rounded
-                          : playback.repeatMode == RepeatMode.all
+                          : playback.repeatMode == PlaybackRepeatMode.all
                               ? Icons.repeat_rounded
                               : Icons.repeat_rounded,
-                      color: playback.repeatMode != RepeatMode.off ? accent : textSecondary,
+                      color: playback.repeatMode != PlaybackRepeatMode.off ? accent : textSecondary,
                       size: 26,
                     ),
-                    tooltip: playback.repeatMode == RepeatMode.one
+                    tooltip: playback.repeatMode == PlaybackRepeatMode.one
                         ? AppStringsVi.repeatOne
-                        : playback.repeatMode == RepeatMode.all
+                        : playback.repeatMode == PlaybackRepeatMode.all
                             ? AppStringsVi.repeatAll
                             : AppStringsVi.repeatOff,
                     onPressed: () {

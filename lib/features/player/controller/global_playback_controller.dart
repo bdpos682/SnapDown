@@ -115,7 +115,7 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
         uri: item.localPath,
         title: item.title,
         artist: item.artist,
-        artworkUri: item.thumbnailPath != null ? Uri.file(item.thumbnailPath!).toString() : null,
+        artworkUri: item.thumbnailPath,
         duration: state.duration,
         isLocal: true,
       );
@@ -263,7 +263,7 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
         uri: item.localPath,
         title: item.title,
         artist: item.artist,
-        artworkUri: item.thumbnailPath != null ? Uri.file(item.thumbnailPath!).toString() : null,
+        artworkUri: item.thumbnailPath,
         duration: Duration(milliseconds: item.durationMs),
         isLocal: true,
       );
@@ -369,7 +369,7 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
         );
       }
 
-      if (state.repeatMode == RepeatMode.one) {
+      if (state.repeatMode == PlaybackRepeatMode.one) {
         await seek(Duration.zero);
         if (state.isVideoMode) {
           await _videoController?.play();
@@ -568,7 +568,7 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
     } else {
       nextIndex = state.queueIndex + 1;
       if (nextIndex >= state.queue.length) {
-        if (state.repeatMode == RepeatMode.all) {
+        if (state.repeatMode == PlaybackRepeatMode.all) {
           nextIndex = 0;
         } else {
           return;
@@ -597,9 +597,9 @@ class GlobalPlaybackController extends Notifier<PlaybackStateModel> with Widgets
 
   void toggleRepeat() {
     final nextMode = switch (state.repeatMode) {
-      RepeatMode.off => RepeatMode.all,
-      RepeatMode.all => RepeatMode.one,
-      RepeatMode.one => RepeatMode.off,
+      PlaybackRepeatMode.off => PlaybackRepeatMode.all,
+      PlaybackRepeatMode.all => PlaybackRepeatMode.one,
+      PlaybackRepeatMode.one => PlaybackRepeatMode.off,
     };
     state = state.copyWith(repeatMode: nextMode);
   }

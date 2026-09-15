@@ -245,17 +245,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Sing
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                  playback.repeatMode == RepeatMode.one
+                  playback.repeatMode == PlaybackRepeatMode.one
                       ? Icons.repeat_one_rounded
-                      : playback.repeatMode == RepeatMode.all
+                      : playback.repeatMode == PlaybackRepeatMode.all
                           ? Icons.repeat_rounded
                           : Icons.repeat_rounded,
-                  color: playback.repeatMode != RepeatMode.off ? AppColors.accentCyan : Colors.white60,
+                  color: playback.repeatMode != PlaybackRepeatMode.off ? AppColors.accentCyan : Colors.white60,
                 ),
                 title: Text(
-                  playback.repeatMode == RepeatMode.one
+                  playback.repeatMode == PlaybackRepeatMode.one
                       ? 'Lặp lại video này: Đang bật'
-                      : playback.repeatMode == RepeatMode.all
+                      : playback.repeatMode == PlaybackRepeatMode.all
                           ? 'Lặp lại toàn bộ: Đang bật'
                           : 'Lặp lại: Tắt',
                   style: const TextStyle(color: Colors.white, fontSize: 13.5),

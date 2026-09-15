@@ -2,7 +2,7 @@ import '../../../core/database/models/media_item_model.dart';
 import '../../resolver/domain/media_info.dart';
 import '../../resolver/domain/media_format.dart';
 
-enum RepeatMode { off, all, one }
+enum PlaybackRepeatMode { off, all, one }
 
 class PlaybackStateModel {
   final MediaItemModel? localItem;
@@ -14,7 +14,7 @@ class PlaybackStateModel {
   final Duration bufferedPosition;
   final double speed;
   final bool isShuffle;
-  final RepeatMode repeatMode;
+  final PlaybackRepeatMode repeatMode;
   final List<MediaItemModel> queue;
   final int queueIndex;
   final bool isVideoMode;
@@ -32,7 +32,7 @@ class PlaybackStateModel {
     this.bufferedPosition = Duration.zero,
     this.speed = 1.0,
     this.isShuffle = false,
-    this.repeatMode = RepeatMode.off,
+    this.repeatMode = PlaybackRepeatMode.off,
     this.queue = const [],
     this.queueIndex = 0,
     this.isVideoMode = false,
@@ -63,7 +63,7 @@ class PlaybackStateModel {
     Duration? bufferedPosition,
     double? speed,
     bool? isShuffle,
-    RepeatMode? repeatMode,
+    PlaybackRepeatMode? repeatMode,
     List<MediaItemModel>? queue,
     int? queueIndex,
     bool? isVideoMode,
